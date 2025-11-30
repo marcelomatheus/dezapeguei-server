@@ -1,0 +1,21 @@
+model Sale {
+    id          String    @id @default(cuid())
+    offerId     String @unique
+    buyerId     String
+    saleDate    DateTime  @default(now())
+    amount      Float
+    status      SaleStatus @default(PENDING)
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt @default(now())
+
+    offer Offer @relation("offer_sale", fields: [offerId], references: [id])
+    buyer User @relation("buyer_sales", fields: [buyerId], references: [id])
+    @@index([offerId])
+    @@index([buyerId])
+}
+
+enum SaleStatus {
+    PENDING
+    COMPLETED
+    CANCELLED
+}

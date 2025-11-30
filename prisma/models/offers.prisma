@@ -1,0 +1,46 @@
+model Offer {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  specifications Specification[]
+  promotion   Float?
+  sellerId    String
+  slug        String    @unique
+  keywords    Keyword[]
+  createdAt   DateTime  @default(now())
+  status      OfferStatus @default(ACTIVE)
+  updatedAt   DateTime  @updatedAt @default(now())
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  seller      User @relation(fields: [sellerId], references: [id])
+  sale       Sale? @relation("offer_sale")
+  @@index([sellerId, status])
+  @@index([status])
+}
+
+model Specification {
+    id      String   @id @default(cuid())
+    key     String
+    value   String
+    offerId String
+    offer   Offer    @relation(fields: [offerId], references: [id])
+    
+    @@index([offerId])
+}
+
+model Keyword {
+  id      String   @id @default(cuid())
+  word    String   @unique
+  offers  Offer[]  
+  @@index([word])
+}
+
+enum OfferStatus {
+  ACTIVE
+  INACTIVE
+  SOLD
+  PENDING
+  CANCELED
+  SOLD_OUT
+}
