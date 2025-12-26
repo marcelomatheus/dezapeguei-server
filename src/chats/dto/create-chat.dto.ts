@@ -1,12 +1,39 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateChatDto {
-  @ApiProperty({ description: 'First participant user id', example: 'cku1' })
-  @IsString()
-  userId!: string;
+  @ApiProperty({
+    description: 'Identifiers of every participant (Supabase user ids).',
+    example: ['user-1', 'user-2'],
+    minItems: 2,
+    type: [String],
+  })
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayUnique()
+  @IsString({ each: true })
+  participantIds!: string[];
 
-  @ApiProperty({ description: 'Second participant user id', example: 'cku2' })
+  @ApiPropertyOptional({
+    description: 'Flag that indicates whether this chat is a group chat.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isGroup?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Optional chat name (required for group chats).',
+    example: 'Equipe logística',
+  })
+  @IsOptional()
   @IsString()
-  user2Id!: string;
+  name?: string;
 }

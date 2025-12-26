@@ -1,18 +1,39 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
+import { ParticipantEntity } from './participant.entity';
 
 export class ChatEntity {
   @ApiProperty({ example: 'ckchat123' })
   @Expose()
   id!: string;
 
-  @ApiProperty({ example: 'cku1' })
+  @ApiProperty({
+    example: ['user-1', 'user-2'],
+    description: 'Supabase user ids of every participant',
+    isArray: true,
+  })
   @Expose()
-  userId!: string;
+  participantIds?: string[];
 
-  @ApiProperty({ example: 'cku2' })
+  @ApiProperty({
+    example: false,
+    description: 'Indicates whether this chat is a group chat',
+  })
   @Expose()
-  user2Id!: string;
+  isGroup!: boolean;
+
+  @ApiProperty({
+    example: 'Equipe logística',
+    nullable: true,
+    description: 'Optional chat name for groups',
+  })
+  @Expose()
+  name!: string | null;
+
+  @ApiProperty({ type: ParticipantEntity, isArray: true })
+  @Expose()
+  @Type(() => ParticipantEntity)
+  participants?: ParticipantEntity[];
 
   @ApiProperty({ example: '2025-01-01T10:00:00.000Z' })
   @Expose()
