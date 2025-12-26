@@ -20,9 +20,10 @@ export class UserEntity {
   @ApiProperty({
     description: 'Contact phone number.',
     example: '+55 11 99888-7766',
+    nullable: true,
   })
   @Expose()
-  phone!: string;
+  phone!: string | null;
 
   @ApiProperty({
     description: 'Instagram username linked to the profile.',
@@ -33,19 +34,69 @@ export class UserEntity {
   instagram!: string | null;
 
   @ApiProperty({
-    description: 'Accumulated trust score.',
-    example: 42,
-  })
-  @Expose()
-  score!: number;
-
-  @ApiProperty({
     description: 'Display name used inside the marketplace.',
     example: 'Alice Souza',
     nullable: true,
   })
   @Expose()
   name!: string | null;
+
+  @ApiProperty({
+    description: 'CPF document',
+    example: '123.456.789-00',
+    nullable: true,
+  })
+  @Expose()
+  cpf!: string | null;
+
+  @ApiProperty({
+    description: 'Avatar URL',
+    nullable: true,
+  })
+  @Expose()
+  avatar!: string | null;
+
+  @ApiProperty({
+    description: 'User bio',
+    nullable: true,
+  })
+  @Expose()
+  bio!: string | null;
+
+  @ApiProperty({
+    description: 'User rating',
+    example: 4.5,
+  })
+  @Expose()
+  rating!: number;
+
+  @ApiProperty({
+    description: 'Number of sales',
+    example: 10,
+  })
+  @Expose()
+  salesCount!: number;
+
+  @ApiProperty({
+    description: 'Number of purchases',
+    example: 5,
+  })
+  @Expose()
+  purchasesCount!: number;
+
+  @ApiProperty({
+    description: 'City',
+    nullable: true,
+  })
+  @Expose()
+  city!: string | null;
+
+  @ApiProperty({
+    description: 'State',
+    nullable: true,
+  })
+  @Expose()
+  state!: string | null;
 
   @ApiProperty({
     description: 'Current subscription plan of the user.',

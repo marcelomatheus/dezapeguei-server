@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { handleError } from '../utils/handle-error';
+import { handleError } from '../utils/handle.errors.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { UserEntity } from './entities/user.entity';
+import { v4 } from 'uuid';
 
 @Injectable()
 export class UsersService {
@@ -77,15 +78,14 @@ export class UsersService {
     email,
     phone,
     instagram,
-    score,
     plan,
     name,
   }: CreateUserDto): Prisma.UserCreateInput {
     return {
+      id: v4(),
       email,
       phone,
       instagram: instagram ?? null,
-      score: score ?? undefined,
       plan,
       name: name ?? null,
     };
@@ -95,7 +95,6 @@ export class UsersService {
     email,
     phone,
     instagram,
-    score,
     plan,
     name,
   }: UpdateUserDto): Prisma.UserUpdateInput {
@@ -103,7 +102,6 @@ export class UsersService {
       email,
       phone,
       instagram: instagram ?? undefined,
-      score: score ?? undefined,
       plan,
       name: name ?? undefined,
     };
