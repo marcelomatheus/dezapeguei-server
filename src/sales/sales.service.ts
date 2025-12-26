@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OfferStatus, Prisma, SaleStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { handleError } from '../utils/handle-error';
+import { handleError } from '../utils/handle.errors.util';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { FindSalesQueryDto } from './dto/find-sales-query.dto';

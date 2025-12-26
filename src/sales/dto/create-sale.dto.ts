@@ -29,7 +29,6 @@ export class CreateSaleDto {
 
   @ApiPropertyOptional({ enum: SaleStatus, default: SaleStatus.PENDING })
   @IsOptional()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @IsEnum(SaleStatus)
   status?: SaleStatus;
 }

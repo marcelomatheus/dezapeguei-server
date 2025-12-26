@@ -21,7 +21,6 @@ export class FindSalesQueryDto {
 
   @ApiPropertyOptional({ enum: SaleStatus })
   @IsOptional()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @IsEnum(SaleStatus)
   status?: SaleStatus;
 }
