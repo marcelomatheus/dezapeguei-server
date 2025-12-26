@@ -10,12 +10,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/create-auth.dto';
-import { Response, Request } from 'express';
+import { LoginDto } from './dto/login-auth.dto';
+import { RegisterDto } from './dto/register.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import type { Response, Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { SupabaseOwnerAuthGuard } from './supabase-owner-auth.guard';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { SupabaseAuthGuard } from './guards/user-auth.guard';
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
@@ -23,27 +24,20 @@ export class AuthController {
 
   @Post('/login')
   @ApiOperation({
-    summary: 'Create a new authentication entry',
+    summary: 'Login user',
   })
   @HttpCode(200)
   login(@Body() loginDto: LoginDto, @Res() res: Response, @Req() req: Request) {
     return this.authService.login(loginDto, res, req);
   }
 
-  @Post('/forgot-password')
+  @Post('/register')
   @ApiOperation({
-    summary: 'Send an email to redefine the forgotten password',
+    summary: 'Register a new user',
   })
-  resetPasswordForEmail(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.authService.resetPasswordForEmail(resetPasswordDto);
-  }
-
-  @Post('/reset-password')
-  @ApiOperation({
-    summary: 'Page to redefine the forgotten password',
-  })
-  resetPassword(@Body() updateAuthDto: UpdateAuthDto) {
-    return this.authService.resetPassword(updateAuthDto);
+  @HttpCode(201)
+  register(@Body() registerDto: RegisterDto, @Res() res: Response) {
+    return this.authService.register(registerDto, res);
   }
 
   @Post('/refresh-token')
@@ -51,18 +45,21 @@ export class AuthController {
     summary: 'Refresh authentication token using refresh token',
   })
   @HttpCode(200)
-  refreshToken(@Req() request: Request, @Res() res: Response) {
-    const cookies = request.cookies as { refresh_token?: string };
-    if (
-      !cookies.refresh_token ||
-      cookies?.refresh_token === 'undefined' ||
-      cookies?.refresh_token === undefined
-    ) {
-      console.error('No refresh token found in cookies');
-      throw new UnauthorizedException('No refresh token found in cookies');
-    } else {
-      return this.authService.refreshToken(cookies.refresh_token, res);
+  refreshToken(
+    @Body() body: RefreshTokenDto,
+    @Req() request: Request,
+    @Res() res: Response,
+  ) {
+    const token =
+      body.refreshToken ||
+      (request.cookies as { refresh_token?: string })?.refresh_token;
+
+    if (!token || token === 'undefined') {
+      console.error('No refresh token found');
+      throw new UnauthorizedException('No refresh token provided');
     }
+
+    return this.authService.refreshToken(token, res);
   }
 
   @Post('/logout')
@@ -76,7 +73,7 @@ export class AuthController {
 
   @Get('/profile')
   @ApiBearerAuth()
-  @UseGuards(SupabaseOwnerAuthGuard)
+  @UseGuards(SupabaseAuthGuard)
   @ApiOperation({
     summary: 'Get user profile information',
   })

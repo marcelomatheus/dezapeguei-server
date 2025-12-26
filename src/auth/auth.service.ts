@@ -1,21 +1,23 @@
 import {
-  BadRequestException,
   Injectable,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { CreateAuthDto, LoginDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { CreateAuthDto } from './dto/create-auth.dto';
+import { LoginDto } from './dto/login-auth.dto';
+import { RegisterDto } from './dto/register.dto';
 import { SupabaseService } from '../supabase/supabase.service';
-import { Signup } from './entities/signup.entity';
-import { handleError } from '../../utils/handle.errors.util';
+import { PrismaService } from '../prisma/prisma.service';
+import { handleError } from '../utils/handle.errors.util';
 import { User } from '@supabase/supabase-js';
-import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Response, Request } from 'express';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly prisma: PrismaService,
+  ) {}
   async login(loginDto: LoginDto, res: Response, req: Request) {
     const supabaseClient = this.supabase.createClientForAuthentication();
     const { data, error } = await supabaseClient.auth.signInWithPassword({
@@ -30,27 +32,37 @@ export class AuthService {
       throw new UnauthorizedException('No session returned from login');
     }
 
-    const { session, user } = data;
-    // Safely resolve user-agent header: string | string[] | undefined -> string
-    const uaHeader = req.headers['user-agent'] as string | string[] | undefined;
-    const ua: string = (Array.isArray(uaHeader) ? uaHeader[0] : uaHeader) ?? '';
+    const { session, user: supabaseUser } = data;
+    const prismaUser = await this.prisma.user.findUnique({
+      where: { id: supabaseUser.id },
+    });
 
-    // const isSafari = /safari/i.test(ua) && !/chrome|crios|android/i.test(ua);
+    if (!prismaUser) {
+      throw new UnauthorizedException('User not found in database');
+    }
 
-    // res.cookie('refresh_token', session.refresh_token, {
-    //   httpOnly: true,
-    //   secure: true,
-    //   sameSite: isSafari ? 'lax' : 'none',
-    //   maxAge: 7 * 24 * 60 * 60 * 1000,
-    // });
     return res.json({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      expires_at: new Date(session.expires_at * 1000),
-      token_type: session.token_type,
-      user,
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+      user: {
+        id: prismaUser.id,
+        name: prismaUser.name,
+        email: prismaUser.email,
+        phone: prismaUser.phone,
+        cpf: prismaUser.cpf,
+        avatar: prismaUser.avatar,
+        bio: prismaUser.bio,
+        rating: prismaUser.rating,
+        salesCount: prismaUser.salesCount,
+        purchasesCount: prismaUser.purchasesCount,
+        city: prismaUser.city,
+        state: prismaUser.state,
+        createdAt: prismaUser.createdAt.toISOString(),
+        updatedAt: prismaUser.updatedAt.toISOString(),
+      },
     });
   }
+
   async refreshToken(refresh_token: string, res: Response) {
     if (!refresh_token)
       throw new UnauthorizedException('No refresh token found');
@@ -65,20 +77,96 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const { session, user } = data;
-    // res.cookie('refresh_token', session.refresh_token, {
-    //   httpOnly: true,
-    //   secure: process.env.ENVIRONMENT === 'production',
-    //   sameSite: process.env.ENVIRONMENT === 'production' ? 'none' : 'lax',
-    //   maxAge: 7 * 24 * 60 * 60 * 1000,
-    //   path: '/',
-    // });
+    const { session, user: supabaseUser } = data;
+
+    if (!supabaseUser) {
+      throw new UnauthorizedException('User not found in session');
+    }
+
+    const prismaUser = await this.prisma.user.findUnique({
+      where: { id: supabaseUser.id },
+    });
+
+    if (!prismaUser) {
+      throw new UnauthorizedException('User not found in database');
+    }
+
     return res.json({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      expires_at: new Date(session.expires_at * 1000),
-      token_type: session.token_type,
-      user,
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+      user: {
+        id: prismaUser.id,
+        name: prismaUser.name,
+        email: prismaUser.email,
+        phone: prismaUser.phone,
+        cpf: prismaUser.cpf,
+        avatar: prismaUser.avatar,
+        bio: prismaUser.bio,
+        rating: prismaUser.rating,
+        salesCount: prismaUser.salesCount,
+        purchasesCount: prismaUser.purchasesCount,
+        city: prismaUser.city,
+        state: prismaUser.state,
+        createdAt: prismaUser.createdAt.toISOString(),
+        updatedAt: prismaUser.updatedAt.toISOString(),
+      },
+    });
+  }
+  async register(registerDto: RegisterDto, res: Response) {
+    const supabaseClient = this.supabase.createClientForAuthentication();
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: registerDto.email,
+      password: registerDto.password,
+    });
+
+    if (error) {
+      console.error('Error during Supabase signUp:', error);
+      throw new UnprocessableEntityException(error.message);
+    }
+
+    if (!data?.user) {
+      console.error(
+        'No user or session returned from Supabase signUp, data:',
+        data,
+      );
+      throw new UnprocessableEntityException('Failed to create user');
+    }
+
+    const { user: supabaseUser } = data;
+
+    const prismaUser = await this.prisma.user
+      .create({
+        data: {
+          id: supabaseUser.id,
+          email: registerDto.email,
+          name: registerDto.name,
+          phone: registerDto.phone,
+          cpf: registerDto?.cpf,
+          plan: 'FREE',
+        },
+      })
+      .catch((error: Error) => {
+        handleError(error, 'AuthService.register');
+      });
+
+    return res.status(201).json({
+      user: {
+        id: prismaUser.id,
+        name: prismaUser.name,
+        email: prismaUser.email,
+        phone: prismaUser.phone,
+        cpf: prismaUser.cpf,
+        avatar: prismaUser.avatar,
+        bio: prismaUser.bio,
+        rating: prismaUser.rating,
+        salesCount: prismaUser.salesCount,
+        purchasesCount: prismaUser.purchasesCount,
+        city: prismaUser.city,
+        state: prismaUser.state,
+        createdAt: prismaUser.createdAt.toISOString(),
+        updatedAt: prismaUser.updatedAt.toISOString(),
+      },
     });
   }
 
@@ -107,7 +195,7 @@ export class AuthService {
     return user;
   }
 
-  async signUpNewUser(signupPayload: Signup) {
+  async signUpNewUser(signupPayload: CreateAuthDto) {
     const supabaseClient = this.supabase.getClient();
 
     try {
@@ -115,7 +203,7 @@ export class AuthService {
         email: signupPayload.email,
         password: signupPayload.password,
         options: {
-          emailRedirectTo: 'https://pillot.com.br',
+          emailRedirectTo: 'https://google.com',
         },
       });
 
@@ -133,86 +221,64 @@ export class AuthService {
     }
   }
 
-  async resetPasswordForEmail(resetPasswordDto: ResetPasswordDto) {
-    const supabaseClient = this.supabase.getClient();
-    try {
-      const { data, error } = await supabaseClient.auth.resetPasswordForEmail(
-        resetPasswordDto.email,
-        {
-          redirectTo: `${process.env.CLIENT_BASE_URL}/reset-password`,
-        },
-      );
+  // async resetPasswordForEmail(resetPasswordDto: ResetPasswordDto) {
+  //   const supabaseClient = this.supabase.getClient();
+  //   try {
+  //     const { data, error } = await supabaseClient.auth.resetPasswordForEmail(
+  //       resetPasswordDto.email,
+  //       {
+  //         redirectTo: `${process.env.CLIENT_BASE_URL}/reset-password`,
+  //       },
+  //     );
 
-      if (error) {
-        console.error('Erro ao enviar o email:', error);
-        throw error;
-      }
-      return data;
-    } catch (err) {
-      handleError(err as Error);
-    }
-  }
+  //     if (error) {
+  //       console.error('Erro ao enviar o email:', error);
+  //       throw error;
+  //     }
+  //     return data;
+  //   } catch (err) {
+  //     handleError(err as Error);
+  //   }
+  // }
 
-  async resetPassword(updateAuthDto: UpdateAuthDto) {
-    const supabaseClient = this.supabase.getClient();
+  // async resetPassword(updateAuthDto: UpdateAuthDto) {
+  //   const supabaseClient = this.supabase.getClient();
 
-    try {
-      if (updateAuthDto.refresh_token) {
-        const { data: session, error: errSession } =
-          await supabaseClient.auth.setSession({
-            access_token: updateAuthDto.access_token,
-            refresh_token: updateAuthDto.refresh_token,
-          });
+  //   try {
+  //     if (updateAuthDto.refresh_token) {
+  //       const { data: session, error: errSession } =
+  //         await supabaseClient.auth.setSession({
+  //           access_token: updateAuthDto.access_token,
+  //           refresh_token: updateAuthDto.refresh_token,
+  //         });
 
-        if (errSession || session?.session.token_type !== 'bearer') {
-          throw new BadRequestException('Token de recuperação inválido');
-        }
-      } else {
-        const { error: errSession } = await supabaseClient.auth.setSession({
-          access_token: updateAuthDto.access_token,
-          refresh_token: null,
-        });
+  //       if (errSession || session?.session.token_type !== 'bearer') {
+  //         throw new BadRequestException('Token de recuperação inválido');
+  //       }
+  //     } else {
+  //       const { error: errSession } = await supabaseClient.auth.setSession({
+  //         access_token: updateAuthDto.access_token,
+  //         refresh_token: null,
+  //       });
 
-        if (errSession) {
-          console.error('Erro ao validar token de recovery:', errSession);
-          throw new BadRequestException('Token de recovery inválido');
-        }
-      }
+  //       if (errSession) {
+  //         console.error('Erro ao validar token de recovery:', errSession);
+  //         throw new BadRequestException('Token de recovery inválido');
+  //       }
+  //     }
 
-      const { data, error } = await supabaseClient.auth.updateUser({
-        password: updateAuthDto.password,
-      });
+  //     const { data, error } = await supabaseClient.auth.updateUser({
+  //       password: updateAuthDto.password,
+  //     });
 
-      if (error) {
-        console.error('Erro ao redefinir a senha:', error);
-        throw new BadRequestException('Falha ao redefinir a senha');
-      }
+  //     if (error) {
+  //       console.error('Erro ao redefinir a senha:', error);
+  //       throw new BadRequestException('Falha ao redefinir a senha');
+  //     }
 
-      return data;
-    } catch (err) {
-      handleError(err as Error);
-    }
-  }
-
-  create(createAuthDto: CreateAuthDto, res: Response, req: Request) {
-    return this.login(createAuthDto, res, req);
-  }
-
-  findAll() {
-    return `This action returns all auth`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
-
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = updateAuthDto;
-    return `This action updates a #${id} auth`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
-  }
+  //     return data;
+  //   } catch (err) {
+  //     handleError(err as Error);
+  //   }
+  // }
 }
