@@ -59,6 +59,16 @@ export class OfferEntity {
   @Expose()
   promotion!: number | null;
 
+  @ApiProperty({
+    type: [String],
+    example: [
+      'https://storage.supabase.co/offers/image1.jpg',
+      'https://storage.supabase.co/offers/image2.jpg',
+    ],
+  })
+  @Expose()
+  imageUrl!: string[];
+
   @ApiProperty({ enum: OfferStatus, example: OfferStatus.ACTIVE })
   @Expose()
   status!: OfferStatus;
