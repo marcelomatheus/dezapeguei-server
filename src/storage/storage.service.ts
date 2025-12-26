@@ -1,8 +1,46 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import { handleError } from '../../utils/handle.errors.util';
+import { handleError } from '../utils/handle.errors.util';
 import { StorageBucketType } from './entity/bucket.entity';
 import { v4 as uuidv4 } from 'uuid';
+
+const DEFAULT_ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  '.xlsx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
+const DEFAULT_ALLOWED_EXTENSIONS = [
+  'xlsx',
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'webp',
+  'pdf',
+  'doc',
+  'docx',
+];
+
+type StorageUploadOptions = {
+  allowedMimeTypes?: string[];
+  allowedExtensions?: string[];
+  maxSizeBytes?: number;
+  customFileName?: string;
+};
+
+export interface StorageUploadResult {
+  publicUrl: string;
+  path: string;
+  fileName: string;
+}
 
 @Injectable()
 export class StorageService {
@@ -39,30 +77,23 @@ export class StorageService {
     file: Express.Multer.File,
     path: string,
     bucket: StorageBucketType,
-  ) {
+    options: StorageUploadOptions = {},
+  ): Promise<StorageUploadResult> {
     const supabaseClient = this.supabase.getClient();
 
     if (!file || !file.buffer) {
       throw new BadRequestException('No file provided or file buffer is empty');
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = options.maxSizeBytes ?? 10 * 1024 * 1024;
     if (file.size > maxSize) {
       throw new BadRequestException(
         'File size exceeds maximum allowed size (10MB)',
       );
     }
 
-    const allowedMimeTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ];
+    const allowedMimeTypes =
+      options.allowedMimeTypes ?? DEFAULT_ALLOWED_MIME_TYPES;
 
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
@@ -78,16 +109,8 @@ export class StorageService {
     }
 
     const ext = filename.substring(lastDotIndex + 1).toLowerCase();
-    const allowedExtensions = [
-      'jpg',
-      'jpeg',
-      'png',
-      'gif',
-      'webp',
-      'pdf',
-      'doc',
-      'docx',
-    ];
+    const allowedExtensions =
+      options.allowedExtensions ?? DEFAULT_ALLOWED_EXTENSIONS;
 
     if (!allowedExtensions.includes(ext)) {
       throw new BadRequestException(`File extension .${ext} is not allowed`);
@@ -97,11 +120,12 @@ export class StorageService {
       throw new BadRequestException('Path cannot be empty');
     }
 
-    const randomName = `${uuidv4()}.${ext}`;
+    const targetFileName = options.customFileName ?? `${uuidv4()}.${ext}`;
+    const storagePath = `${path}/${targetFileName}`;
 
     const { data, error } = await supabaseClient.storage
       .from(bucket)
-      .upload(`${path}/${randomName}`, file.buffer, {
+      .upload(storagePath, file.buffer, {
         contentType: file.mimetype,
       });
 
@@ -114,7 +138,11 @@ export class StorageService {
       .from(bucket)
       .getPublicUrl(data.path);
 
-    return publicUrlData.publicUrl;
+    return {
+      publicUrl: publicUrlData.publicUrl,
+      path: data.path,
+      fileName: targetFileName,
+    };
   }
 
   async updateFile(
@@ -122,6 +150,7 @@ export class StorageService {
     path: string,
     bucket: StorageBucketType,
     oldFileUrl?: string,
+    options: StorageUploadOptions = {},
   ) {
     const supabaseClient = this.supabase.getClient();
 
@@ -136,7 +165,8 @@ export class StorageService {
           console.warn('Failed to remove old file:', removeError.message);
         }
       }
-      return await this.uploadFile(file, path, bucket);
+      const { publicUrl } = await this.uploadFile(file, path, bucket, options);
+      return publicUrl;
     } catch (error) {
       console.error('Error in updateFile:', error);
       if (error instanceof BadRequestException) {
@@ -155,5 +185,27 @@ export class StorageService {
       .from(bucket)
       .remove([filePath]);
     if (error) handleError(error as Error);
+  }
+
+  async downloadFile(
+    pathOrUrl: string,
+    bucket: StorageBucketType,
+  ): Promise<Buffer> {
+    const supabaseClient = this.supabase.getClient();
+    const filePath = pathOrUrl.includes(bucket)
+      ? this.extractFilePath(pathOrUrl, bucket)
+      : pathOrUrl;
+
+    const { data, error } = await supabaseClient.storage
+      .from(bucket)
+      .download(filePath);
+
+    if (error) {
+      console.error('Supabase download error:', error);
+      throw new BadRequestException(`Download failed: ${error.message}`);
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    return Buffer.from(arrayBuffer);
   }
 }
