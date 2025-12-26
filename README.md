@@ -48,12 +48,12 @@ API do marketplace P2P Dezapeguei construída em NestJS, com autenticação Supa
 1) Pré-requisitos: Node 20+, PostgreSQL, Redis. `npm install -g @nestjs/cli` opcional para CLIs.
 2) Copie/crie `.env` na raiz com, por exemplo:
 ```
-DATABASE_URL=postgresql://user:password@localhost:5432/dezapeguei
-DIRECT_URL=postgresql://user:password@localhost:5432/dezapeguei
-REDIS_URL=redis://localhost:6379
-SUPABASE_URL=https://<seu-projeto>.supabase.co
-SUPABASE_KEY=<chave-service-role-ou-anon>
-SUPABASE_JWT_SECRET=<jwt-secret>
+DATABASE_URL=
+DIRECT_URL=
+REDIS_URL=
+SUPABASE_URL=
+SUPABASE_KEY=
+SUPABASE_JWT_SECRET=
 PORT=8080
 ```
 3) Instale dependências: `npm install`.
