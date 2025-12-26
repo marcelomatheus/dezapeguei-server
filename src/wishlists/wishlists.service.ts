@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Wishlist, Offer } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { handleError } from '../utils/handle-error';
-import { CreateWishlistDto } from './dto/create-wishlist.dto';
-import { UpdateWishlistDto } from './dto/update-wishlist.dto';
+import { handleError } from '../utils/handle.errors.util';
+import { AddWishlistItemDto } from './dto/add-wishlist-item.dto';
+import { RemoveWishlistItemDto } from './dto/remove-wishlist-item.dto';
 import { FindWishlistsQueryDto } from './dto/find-wishlists-query.dto';
 import { WishlistEntity } from './entities/wishlist.entity';
 
@@ -11,72 +11,60 @@ import { WishlistEntity } from './entities/wishlist.entity';
 export class WishlistsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateWishlistDto): Promise<WishlistEntity> {
-    try {
-      await this.ensureUser(dto.userId);
-      const exists = await this.prisma.wishlist.findUnique({
-        where: { userId: dto.userId },
-      });
-      if (exists)
-        throw new Error(`Wishlist for user ${dto.userId} already exists`);
-
-      const created = await this.prisma.wishlist.create({
-        data: { name: dto.name, userId: dto.userId },
-      });
-      return new WishlistEntity(created as unknown as Partial<WishlistEntity>);
-    } catch (error) {
-      return this.handleServiceError(error, 'WishlistsService.create');
-    }
-  }
-
   async findAll(query: FindWishlistsQueryDto): Promise<WishlistEntity[]> {
     try {
-      const where: Prisma.WishlistWhereInput = { userId: query.userId };
+      const where: Prisma.WishlistWhereInput = {
+        userId: query.userId,
+      };
       const rows = await this.prisma.wishlist.findMany({
         where,
+        include: { offer: true },
         orderBy: { createdAt: 'desc' },
       });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return rows.map(
-        (r) => new WishlistEntity(r as unknown as Partial<WishlistEntity>),
-      );
+      return rows.map((r) => this.mapWishlist(r));
     } catch (error) {
-      return this.handleServiceError(error, 'WishlistsService.findAll');
+      return handleError(error, 'WishlistsService.findAll');
     }
   }
 
   async findById(id: string): Promise<WishlistEntity> {
     try {
-      const row = await this.prisma.wishlist.findUnique({ where: { id } });
-      if (!row) throw new NotFoundException(`Wishlist with id ${id} not found`);
-      return new WishlistEntity(row as unknown as Partial<WishlistEntity>);
-    } catch (error) {
-      return this.handleServiceError(error, 'WishlistsService.findById');
-    }
-  }
-
-  async update(id: string, dto: UpdateWishlistDto): Promise<WishlistEntity> {
-    try {
-      if (dto.userId) await this.ensureUser(dto.userId);
-      const updated = await this.prisma.wishlist.update({
+      const row = await this.prisma.wishlist.findUnique({
         where: { id },
-        data: {
-          name: dto.name ?? undefined,
-          userId: dto.userId ?? undefined,
-        },
+        include: { offer: true },
       });
-      return new WishlistEntity(updated as unknown as Partial<WishlistEntity>);
+      if (!row) throw new NotFoundException(`Wishlist entry ${id} not found`);
+      return this.mapWishlist(row);
     } catch (error) {
-      return this.handleServiceError(error, 'WishlistsService.update');
+      return handleError(error, 'WishlistsService.findById');
     }
   }
 
-  async remove(id: string): Promise<WishlistEntity> {
+  async addItem(dto: AddWishlistItemDto): Promise<WishlistEntity> {
     try {
-      const deleted = await this.prisma.wishlist.delete({ where: { id } });
-      return new WishlistEntity(deleted as unknown as Partial<WishlistEntity>);
+      await this.ensureUser(dto.userId);
+      await this.ensureOffer(dto.offerId);
+
+      const entry = await this.prisma.wishlist.upsert({
+        where: { userId_offerId: { userId: dto.userId, offerId: dto.offerId } },
+        update: {},
+        create: { userId: dto.userId, offerId: dto.offerId },
+        include: { offer: true },
+      });
+
+      return this.mapWishlist(entry);
     } catch (error) {
-      return this.handleServiceError(error, 'WishlistsService.remove');
+      return handleError(error, 'WishlistsService.addItem');
+    }
+  }
+
+  async removeItem(dto: RemoveWishlistItemDto): Promise<void> {
+    try {
+      await this.prisma.wishlist.delete({
+        where: { userId_offerId: { userId: dto.userId, offerId: dto.offerId } },
+      });
+    } catch (error) {
+      return handleError(error, 'WishlistsService.removeItem');
     }
   }
 
@@ -85,10 +73,22 @@ export class WishlistsService {
     if (!exists) throw new NotFoundException(`User ${userId} not found`);
   }
 
-  private handleServiceError(error: unknown, context: string): never {
-    return handleError(
-      error instanceof Error ? error : new Error(String(error)),
-      context,
-    );
+  private async ensureOffer(offerId: string) {
+    const exists = await this.prisma.offer.findUnique({
+      where: { id: offerId },
+    });
+    if (!exists) throw new NotFoundException(`Offer ${offerId} not found`);
+  }
+
+  private mapWishlist(
+    wishlist: Wishlist & { offer?: Offer | null },
+  ): WishlistEntity {
+    return new WishlistEntity({
+      id: wishlist.id,
+      userId: wishlist.userId,
+      offerId: wishlist.offerId ?? undefined,
+      createdAt: wishlist.createdAt,
+      offer: wishlist.offer ?? undefined,
+    });
   }
 }

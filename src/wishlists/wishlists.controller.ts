@@ -5,14 +5,11 @@ import {
   Delete,
   Get,
   Param,
-  Patch,
   Post,
   Query,
   UseInterceptors,
 } from '@nestjs/common';
 import {
-  ApiBadRequestResponse,
-  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -20,10 +17,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { WishlistsService } from './wishlists.service';
-import { CreateWishlistDto } from './dto/create-wishlist.dto';
-import { UpdateWishlistDto } from './dto/update-wishlist.dto';
 import { FindWishlistsQueryDto } from './dto/find-wishlists-query.dto';
 import { WishlistEntity } from './entities/wishlist.entity';
+import { AddWishlistItemDto } from './dto/add-wishlist-item.dto';
+import { RemoveWishlistItemDto } from './dto/remove-wishlist-item.dto';
 
 @ApiTags('Wishlists')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -31,23 +28,15 @@ import { WishlistEntity } from './entities/wishlist.entity';
 export class WishlistsController {
   constructor(private readonly wishlistsService: WishlistsService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a wishlist for a user' })
-  @ApiCreatedResponse({ type: WishlistEntity })
-  @ApiBadRequestResponse({ description: 'Validation error' })
-  create(@Body() dto: CreateWishlistDto): Promise<WishlistEntity> {
-    return this.wishlistsService.create(dto);
-  }
-
   @Get()
-  @ApiOperation({ summary: 'List wishlists (optionally by user)' })
+  @ApiOperation({ summary: 'List wishlist entries (filter by user optional)' })
   @ApiOkResponse({ type: WishlistEntity, isArray: true })
   findAll(@Query() query: FindWishlistsQueryDto): Promise<WishlistEntity[]> {
     return this.wishlistsService.findAll(query);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a wishlist by id' })
+  @ApiOperation({ summary: 'Get a wishlist entry by id' })
   @ApiParam({ name: 'id', example: 'ckwl1' })
   @ApiOkResponse({ type: WishlistEntity })
   @ApiNotFoundResponse({ description: 'Wishlist not found' })
@@ -55,22 +44,19 @@ export class WishlistsController {
     return this.wishlistsService.findById(id);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update a wishlist by id' })
-  @ApiParam({ name: 'id', example: 'ckwl1' })
+  @Post('items')
+  @ApiOperation({ summary: 'Add an offer to the user wishlist (Favoritos)' })
   @ApiOkResponse({ type: WishlistEntity })
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateWishlistDto,
-  ): Promise<WishlistEntity> {
-    return this.wishlistsService.update(id, dto);
+  addItem(@Body() dto: AddWishlistItemDto): Promise<WishlistEntity> {
+    return this.wishlistsService.addItem(dto);
   }
 
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete a wishlist by id' })
-  @ApiParam({ name: 'id', example: 'ckwl1' })
-  @ApiOkResponse({ type: WishlistEntity })
-  remove(@Param('id') id: string): Promise<WishlistEntity> {
-    return this.wishlistsService.remove(id);
+  @Delete('items')
+  @ApiOperation({
+    summary: 'Remove an offer from the user wishlist (Favoritos)',
+  })
+  @ApiOkResponse({ description: 'Removed' })
+  removeItem(@Body() dto: RemoveWishlistItemDto): Promise<void> {
+    return this.wishlistsService.removeItem(dto);
   }
 }
