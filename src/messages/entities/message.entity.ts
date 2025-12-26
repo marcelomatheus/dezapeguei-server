@@ -18,6 +18,18 @@ export class MessageEntity {
   @Expose()
   senderId!: string;
 
+  @ApiProperty({ example: 'TEXT', nullable: true })
+  @Expose()
+  type?: string;
+
+  @ApiProperty({ example: 'SENT', nullable: true })
+  @Expose()
+  status?: string;
+
+  @ApiProperty({ example: '2025-01-01T10:00:00.000Z', nullable: true })
+  @Expose()
+  readAt?: Date;
+
   @ApiProperty({ example: '2025-01-01T10:00:00.000Z' })
   @Expose()
   createdAt!: Date;

@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { handleError } from '../utils/handle-error';
+import { handleError } from '../utils/handle.errors.util';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { FindMessagesQueryDto } from './dto/find-messages-query.dto';
@@ -19,6 +19,7 @@ export class MessagesService {
     try {
       const chat = await this.prisma.chat.findUnique({
         where: { id: dto.chatId },
+        include: { participants: true },
       });
       if (!chat)
         throw new NotFoundException(`Chat with id ${dto.chatId} not found`);
@@ -27,7 +28,7 @@ export class MessagesService {
       });
       if (!sender)
         throw new NotFoundException(`Sender with id ${dto.senderId} not found`);
-      if (dto.senderId !== chat.userId && dto.senderId !== chat.user2Id) {
+      if (!chat.participants.some((p) => p.userId === dto.senderId)) {
         throw new BadRequestException(
           'Sender must be a participant of the chat',
         );
@@ -48,15 +49,18 @@ export class MessagesService {
 
   async findAll(query: FindMessagesQueryDto): Promise<MessageEntity[]> {
     try {
-      const where: Prisma.MessageWhereInput = {
-        chatId: query.chatId,
-        senderId: query.senderId,
-      };
+      const where: Prisma.MessageWhereInput = {};
+      if (query.chatId) {
+        where.chatId = query.chatId;
+      }
+      if (query.senderId) {
+        where.senderId = query.senderId;
+      }
       const rows = await this.prisma.message.findMany({
         where,
         orderBy: { createdAt: 'asc' },
       });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
       return rows.map(
         (r) => new MessageEntity(r as unknown as Partial<MessageEntity>),
       );
@@ -81,6 +85,8 @@ export class MessagesService {
         where: { id },
         data: {
           content: dto.content ?? undefined,
+          status: dto.status ?? undefined,
+          readAt: dto.readAt ?? undefined,
         },
       });
       return new MessageEntity(updated as unknown as Partial<MessageEntity>);
@@ -95,6 +101,30 @@ export class MessagesService {
       return new MessageEntity(deleted as unknown as Partial<MessageEntity>);
     } catch (error) {
       return this.handleServiceError(error, 'MessagesService.remove');
+    }
+  }
+
+  async getMessagesSince(
+    userId: string,
+    since?: Date,
+  ): Promise<MessageEntity[]> {
+    try {
+      const rows = await this.prisma.message.findMany({
+        where: {
+          createdAt: since ? { gt: since } : undefined,
+          chat: {
+            participants: {
+              some: { userId },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      return rows.map(
+        (r) => new MessageEntity(r as unknown as Partial<MessageEntity>),
+      );
+    } catch (error) {
+      return this.handleServiceError(error, 'MessagesService.getMessagesSince');
     }
   }
 
