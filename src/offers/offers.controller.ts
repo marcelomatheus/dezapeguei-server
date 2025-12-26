@@ -8,13 +8,17 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { OffersService } from './offers.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import {
   ApiBadRequestResponse,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -72,5 +76,50 @@ export class OffersController {
   @ApiOkResponse({ type: OfferEntity })
   remove(@Param('id') id: string): Promise<OfferEntity> {
     return this.offersService.remove(id);
+  }
+
+  @Post('upload-images')
+  @ApiOperation({ summary: 'Upload multiple images and return public URLs' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        images: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+          description: 'Array of image files (max 5)',
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        imageUrls: {
+          type: 'array',
+          items: { type: 'string' },
+          example: [
+            'https://storage.supabase.co/offers/image1.jpg',
+            'https://storage.supabase.co/offers/image2.jpg',
+          ],
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid files or too many files' })
+  @UseInterceptors(FilesInterceptor('images', 5))
+  async uploadImages(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+  ): Promise<{ imageUrls: string[] }> {
+    console.log(
+      'Received files for upload:',
+      files.map((f) => f.originalname),
+    );
+    return this.offersService.uploadImages(files);
   }
 }

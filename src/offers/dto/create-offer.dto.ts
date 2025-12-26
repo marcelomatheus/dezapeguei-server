@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { OfferStatus } from '@prisma/client';
+import { OfferStatus, OfferCondition } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsArray,
@@ -48,12 +48,24 @@ export class CreateOfferDto {
   price!: number;
 
   @ApiPropertyOptional({ example: 10, description: 'Optional percentage off' })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   @Transform(({ value }) => (value === undefined ? value : Number(value)))
   @IsOptional()
   @IsNumber()
   @Min(0)
   promotion?: number;
+
+  @ApiPropertyOptional({
+    description: 'Array of image URLs already uploaded',
+    type: [String],
+    example: [
+      'https://storage.supabase.co/offers/image1.jpg',
+      'https://storage.supabase.co/offers/image2.jpg',
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  imageUrl?: string[];
 
   @ApiProperty({ example: 'cku1abc234sellerId', description: 'Seller user id' })
   @IsString()
@@ -81,9 +93,16 @@ export class CreateOfferDto {
   @ValidateNested({ each: true })
   specifications?: CreateSpecificationDto[];
 
+  @ApiProperty({
+    enum: OfferCondition,
+    default: OfferCondition.NEW,
+    description: 'Product condition',
+  })
+  @IsEnum(OfferCondition)
+  condition!: OfferCondition;
+
   @ApiPropertyOptional({ enum: OfferStatus, default: OfferStatus.ACTIVE })
   @IsOptional()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @IsEnum(OfferStatus)
   status?: OfferStatus;
 }
