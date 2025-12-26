@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { handleError } from '../utils/handle-error';
+import { handleError } from '../utils/handle.errors.util';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
 import { FindNotificationsQueryDto } from './dto/find-notifications-query.dto';
@@ -42,7 +42,6 @@ export class NotificationsService {
         where,
         orderBy: { createdAt: 'desc' },
       });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return rows.map(
         (r) =>
           new NotificationEntity(r as unknown as Partial<NotificationEntity>),
