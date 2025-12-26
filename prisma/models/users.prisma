@@ -1,25 +1,32 @@
 model User {
-   id        String   @id @default(cuid())
-   email     String   @unique
-   phone     String   @unique
-   instagram  String?  
-   score     Int      @default(0)
-   name      String?
-   plan      Plan
-   createdAt DateTime @default(now())
-   updatedAt DateTime @updatedAt @default(now())
+  id             String   @id
+  email          String   @unique
+  phone          String?
+  instagram      String?
+  name           String?
+  cpf            String?  @unique
+  avatar         String?
+  bio            String?
+  rating         Float    @default(0)
+  salesCount     Int      @default(0)
+  purchasesCount Int      @default(0)
+  city           String?
+  state          String?
+  plan           Plan     @default(FREE)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
 
-   chats Chat[] @relation("chat_user")
-   chatsAsUser2 Chat[] @relation("chat_user2")
-    messages Message[]
-    wishlists Wishlist? @relation("user_wishlist")
-    notifications Notification[]
-    offers Offer[]
-    salesAsBuyer Sale[] @relation("buyer_sales")
- }
+  participatedChats Participant[]
+  messages          Message[]
 
- enum Plan {
-   FREE
-   PREMIUM
-   ENTERPRISE
- }
+  wishlists     Wishlist[]
+  notifications Notification[]
+  offers        Offer[]
+  salesAsBuyer  Sale[]         @relation("buyer_sales")
+}
+
+enum Plan {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
