@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { handleError } from '../utils/handle.errors.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,10 +11,15 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { UserEntity } from './entities/user.entity';
 import { v4 } from 'uuid';
+import { StorageService } from '../storage/storage.service';
+import { StorageBucketType } from '../storage/entity/bucket.entity';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
 
   create(createUserDto: CreateUserDto): Promise<UserEntity> {
     return this.prisma.user
@@ -56,16 +65,84 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserEntity> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, cpf: true },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
+
+    if (updateUserDto.email && updateUserDto.email !== existingUser.email) {
+      const emailInUse = await this.prisma.user.findUnique({
+        where: { email: updateUserDto.email },
+        select: { id: true },
+      });
+
+      if (emailInUse) {
+        throw new ConflictException('Email already in use');
+      }
+    }
+
+    if (updateUserDto.cpf && updateUserDto.cpf !== existingUser.cpf) {
+      const cpfInUse = await this.prisma.user.findFirst({
+        where: { cpf: updateUserDto.cpf, NOT: { id } },
+        select: { id: true },
+      });
+
+      if (cpfInUse) {
+        throw new ConflictException('CPF already in use');
+      }
+    }
+
+    const sanitizedDto: UpdateUserDto = {
+      ...updateUserDto,
+      rating: undefined,
+      salesCount: undefined,
+      purchasesCount: undefined,
+      plan: undefined,
+    };
+
     const updated = await this.prisma.user
       .update({
         where: { id },
-        data: this.mapUpdateDtoToPrisma(updateUserDto),
+        data: this.mapUpdateDtoToPrisma(sanitizedDto),
       })
       .catch((error: Error) => {
         return handleError(error, 'UsersService.update');
       });
 
     return updated;
+  }
+
+  async uploadAvatar(
+    id: string,
+    file: Express.Multer.File,
+  ): Promise<UserEntity> {
+    const user = await this.findById(id);
+
+    const avatarUrl = await this.storageService.updateFile(
+      file,
+      `users/${id}`,
+      StorageBucketType.USERS,
+      user.avatar ?? undefined,
+      {
+        allowedMimeTypes: [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/webp',
+        ],
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        maxSizeBytes: 5 * 1024 * 1024,
+      },
+    );
+
+    return this.prisma.user.update({
+      where: { id },
+      data: { avatar: avatarUrl },
+    });
   }
 
   async remove(id: string): Promise<UserEntity> {
