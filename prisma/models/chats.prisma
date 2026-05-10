@@ -2,12 +2,16 @@ model Chat {
   id      String  @id @default(cuid())
   name    String?
   isGroup Boolean @default(false)
+  offerId String?
 
   messages     Message[]
   participants Participant[]
+  offer        Offer? @relation(fields: [offerId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([offerId])
 }
 
 model Participant {
