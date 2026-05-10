@@ -16,9 +16,19 @@ import { StorageModule } from './storage/storage.module';
 import { OpenaiModule } from './openai/openai.module';
 import { SocketStoreModule } from './socket-store/socket-store.module';
 import { BullModule } from '@nestjs/bullmq';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60_000,
+          limit: 120,
+        },
+      ],
+    }),
     BullModule.forRoot({
       connection: {
         url: process.env.REDIS_URL,
@@ -40,6 +50,12 @@ import { BullModule } from '@nestjs/bullmq';
     SocketStoreModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

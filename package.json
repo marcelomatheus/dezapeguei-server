@@ -28,6 +28,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-socket.io": "^11.1.9",
     "@nestjs/swagger": "^11.2.1",
+    "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.1.9",
     "@prisma/client": "^6.18.0",
     "@prisma/extension-accelerate": "^2.0.2",
@@ -40,8 +41,10 @@
     "prisma": "^6.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "xss": "^1.0.15"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
