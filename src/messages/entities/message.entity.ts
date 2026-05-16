@@ -28,7 +28,7 @@ export class MessageEntity {
 
   @ApiProperty({ example: '2025-01-01T10:00:00.000Z', nullable: true })
   @Expose()
-  readAt?: Date;
+  readAt?: Date | null;
 
   @ApiProperty({ example: '2025-01-01T10:00:00.000Z' })
   @Expose()

@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -24,6 +25,7 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { FindMessagesQueryDto } from './dto/find-messages-query.dto';
 import { MessageEntity } from './entities/message.entity';
+import { SanitizePipe } from '../common/pipes/sanitize.pipe';
 
 @ApiTags('Messages')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -33,9 +35,24 @@ export class MessagesController {
 
   @Post()
   @ApiOperation({ summary: 'Send a message' })
+  @ApiBody({
+    type: CreateMessageDto,
+    examples: {
+      default: {
+        summary: 'Send text message',
+        value: {
+          chatId: 'chat_123',
+          senderId: 'user_1',
+          content: 'Oi, ainda esta disponivel?',
+        },
+      },
+    },
+  })
   @ApiCreatedResponse({ type: MessageEntity })
   @ApiBadRequestResponse({ description: 'Validation error' })
-  create(@Body() dto: CreateMessageDto): Promise<MessageEntity> {
+  create(
+    @Body(new SanitizePipe()) dto: CreateMessageDto,
+  ): Promise<MessageEntity> {
     return this.messagesService.create(dto);
   }
 
@@ -58,6 +75,18 @@ export class MessagesController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update a message by id' })
   @ApiParam({ name: 'id', example: 'ckmsg123' })
+  @ApiBody({
+    type: UpdateMessageDto,
+    examples: {
+      markRead: {
+        summary: 'Mark message as read',
+        value: {
+          status: 'READ',
+          readAt: '2026-01-10T12:00:00.000Z',
+        },
+      },
+    },
+  })
   @ApiOkResponse({ type: MessageEntity })
   update(
     @Param('id') id: string,

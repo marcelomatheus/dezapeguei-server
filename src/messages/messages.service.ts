@@ -128,6 +128,37 @@ export class MessagesService {
     }
   }
 
+  async getMessagesForChatSince(
+    userId: string,
+    chatId: string,
+    since?: Date,
+  ): Promise<MessageEntity[]> {
+    try {
+      const rows = await this.prisma.message.findMany({
+        where: {
+          chatId,
+          deletedAt: null,
+          createdAt: since ? { gt: since } : undefined,
+          chat: {
+            participants: {
+              some: { userId },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      return rows.map(
+        (r) => new MessageEntity(r as unknown as Partial<MessageEntity>),
+      );
+    } catch (error) {
+      return this.handleServiceError(
+        error,
+        'MessagesService.getMessagesForChatSince',
+      );
+    }
+  }
+
   private handleServiceError(error: unknown, context: string): never {
     return handleError(
       error instanceof Error ? error : new Error(String(error)),
