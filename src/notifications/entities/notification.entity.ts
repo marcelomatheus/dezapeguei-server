@@ -22,6 +22,14 @@ export class NotificationEntity {
   @Expose()
   redirect!: string | null;
 
+  @ApiProperty({
+    example: 3,
+    required: false,
+    description: 'Unread notification count for the current user context',
+  })
+  @Expose()
+  unreadCount?: number;
+
   @ApiProperty({ example: '2025-01-01T10:00:00.000Z' })
   @Expose()
   createdAt!: Date;

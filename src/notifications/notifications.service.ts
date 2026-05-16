@@ -38,13 +38,26 @@ export class NotificationsService {
         userId: query.userId,
         isRead: query.isRead,
       };
+
+      const unreadCount = query.userId
+        ? await this.prisma.notification.count({
+            where: {
+              userId: query.userId,
+              isRead: false,
+            },
+          })
+        : 0;
+
       const rows = await this.prisma.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
       });
       return rows.map(
         (r) =>
-          new NotificationEntity(r as unknown as Partial<NotificationEntity>),
+          new NotificationEntity({
+            ...(r as unknown as Partial<NotificationEntity>),
+            unreadCount,
+          }),
       );
     } catch (error) {
       return this.handleServiceError(error, 'NotificationsService.findAll');

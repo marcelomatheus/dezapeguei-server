@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -33,6 +34,20 @@ export class NotificationsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a notification' })
+  @ApiBody({
+    type: CreateNotificationDto,
+    examples: {
+      default: {
+        summary: 'Create unread notification',
+        value: {
+          userId: 'user_123',
+          message: 'Sua compra foi concluida.',
+          redirect: '/sales/sale_123',
+          isRead: false,
+        },
+      },
+    },
+  })
   @ApiCreatedResponse({ type: NotificationEntity })
   @ApiBadRequestResponse({ description: 'Validation error' })
   create(@Body() dto: CreateNotificationDto): Promise<NotificationEntity> {
@@ -60,6 +75,17 @@ export class NotificationsController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update a notification by id' })
   @ApiParam({ name: 'id', example: 'ckn1' })
+  @ApiBody({
+    type: UpdateNotificationDto,
+    examples: {
+      markRead: {
+        summary: 'Mark as read',
+        value: {
+          isRead: true,
+        },
+      },
+    },
+  })
   @ApiOkResponse({ type: NotificationEntity })
   update(
     @Param('id') id: string,
