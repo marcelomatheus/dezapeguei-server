@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ChatGateway } from './chat.gateway';
 import { ChatMessageProducer } from './chat-message.producer';
 import { ChatMessageProcessor } from './chat-message.processor';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { MessagesModule } from '../messages/messages.module';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
@@ -21,6 +22,7 @@ import { SocketStoreModule } from '../socket-store/socket-store.module';
     BullModule.registerQueue({
       name: 'message-queue',
     }),
+    NotificationsModule,
   ],
   controllers: [ChatController],
   providers: [

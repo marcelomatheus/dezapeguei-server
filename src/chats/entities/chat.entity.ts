@@ -30,10 +30,26 @@ export class ChatEntity {
   @Expose()
   name!: string | null;
 
+  @ApiProperty({
+    example: 'ckof123',
+    nullable: true,
+    description: 'Related offer id when the chat was started from an offer.',
+  })
+  @Expose()
+  offerId!: string | null;
+
   @ApiProperty({ type: ParticipantEntity, isArray: true })
   @Expose()
   @Type(() => ParticipantEntity)
   participants?: ParticipantEntity[];
+
+  @ApiProperty({
+    example: 3,
+    required: false,
+    description: 'Amount of unread messages for the current querying user.',
+  })
+  @Expose()
+  unreadCount?: number;
 
   @ApiProperty({ example: '2025-01-01T10:00:00.000Z' })
   @Expose()

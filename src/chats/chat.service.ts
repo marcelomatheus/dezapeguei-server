@@ -23,6 +23,10 @@ export class ChatService {
       }
 
       await this.ensureUsers(participantIds);
+      const offerId = this.toOptionalString(dto.offerId);
+      if (offerId) {
+        await this.ensureOffer(offerId);
+      }
 
       if (!dto.isGroup) {
         const existing = await this.findExistingDirectChat(participantIds);
@@ -35,6 +39,7 @@ export class ChatService {
         data: {
           isGroup: dto.isGroup ?? false,
           name: dto.name ?? null,
+          offerId: offerId ?? null,
           participants: {
             createMany: {
               data: participantIds.map((userId) => ({ userId })),
@@ -45,7 +50,10 @@ export class ChatService {
       });
       return created;
     } catch (error) {
-      return handleError(error, 'ChatService.create');
+      return handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        'ChatService.create',
+      );
     }
   }
 
@@ -85,9 +93,34 @@ export class ChatService {
         include: { participants: { include: { user: true } } },
       });
 
-      return rows;
+      if (!query.userId) {
+        return rows;
+      }
+
+      const chatsWithUnreadCount = await Promise.all(
+        rows.map(async (chat) => {
+          const unreadCount = await this.prisma.message.count({
+            where: {
+              chatId: chat.id,
+              deletedAt: null,
+              senderId: { not: query.userId },
+              status: { not: 'READ' },
+            },
+          });
+
+          return {
+            ...chat,
+            unreadCount,
+          };
+        }),
+      );
+
+      return chatsWithUnreadCount;
     } catch (error) {
-      return handleError(error, 'ChatService.findAll');
+      return handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        'ChatService.findAll',
+      );
     }
   }
 
@@ -100,7 +133,10 @@ export class ChatService {
       if (!row) throw new NotFoundException(`Chat with id ${id} not found`);
       return row;
     } catch (error) {
-      return handleError(error, 'ChatService.findById');
+      return handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        'ChatService.findById',
+      );
     }
   }
 
@@ -122,6 +158,11 @@ export class ChatService {
           dto.isGroup ?? existing.isGroup,
         );
         await this.ensureUsers(participantIds);
+      }
+
+      const offerId = this.toOptionalString(dto.offerId);
+      if (offerId) {
+        await this.ensureOffer(offerId);
       }
 
       const targetIsGroup = dto.isGroup ?? existing.isGroup;
@@ -159,13 +200,17 @@ export class ChatService {
           data: {
             isGroup: dto.isGroup ?? undefined,
             name: dto.name ?? undefined,
+            offerId: offerId ?? undefined,
           },
           include: { participants: { include: { user: true } } },
         });
       });
       return updated;
     } catch (error) {
-      return handleError(error, 'ChatService.update');
+      return handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        'ChatService.update',
+      );
     }
   }
 
@@ -177,7 +222,10 @@ export class ChatService {
       });
       return deleted;
     } catch (error) {
-      return handleError(error, 'ChatService.remove');
+      return handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        'ChatService.remove',
+      );
     }
   }
 
@@ -239,6 +287,22 @@ export class ChatService {
       );
       throw new NotFoundException(`User(s) not found: ${missing.join(', ')}`);
     }
+  }
+
+  private async ensureOffer(offerId: string) {
+    const offer = await this.prisma.offer.findUnique({
+      where: { id: offerId },
+      select: { id: true },
+    });
+    if (!offer) {
+      throw new NotFoundException(`Offer with id ${offerId} not found`);
+    }
+  }
+
+  private toOptionalString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim().length > 0
+      ? value
+      : undefined;
   }
 
   private async findExistingDirectChat(participantIds: string[]) {

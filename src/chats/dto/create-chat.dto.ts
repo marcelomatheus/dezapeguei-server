@@ -22,6 +22,15 @@ export class CreateChatDto {
   participantIds!: string[];
 
   @ApiPropertyOptional({
+    description:
+      'Optional offer id for contextual chats started from offer detail pages.',
+    example: 'offer-123',
+  })
+  @IsOptional()
+  @IsString()
+  offerId?: string;
+
+  @ApiPropertyOptional({
     description: 'Flag that indicates whether this chat is a group chat.',
     default: false,
   })

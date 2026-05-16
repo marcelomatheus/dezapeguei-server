@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -26,6 +27,7 @@ import { UpdateChatDto } from './dto/update-chat.dto';
 import { FindChatsQueryDto } from './dto/find-chats-query.dto';
 import { FindOrCreateChatDto } from './dto/find-or-create-chat.dto';
 import { ChatEntity } from './entities/chat.entity';
+import { ChatResponseDto } from './dto/chat-response.dto';
 
 @ApiTags('Chats')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -35,6 +37,19 @@ export class ChatController {
 
   @Post()
   @ApiOperation({ summary: 'Create or reuse a chat between two users' })
+  @ApiBody({
+    type: CreateChatDto,
+    examples: {
+      default: {
+        summary: 'Create direct chat',
+        value: {
+          participantIds: ['user_1', 'user_2'],
+          offerId: 'offer_123',
+          isGroup: false,
+        },
+      },
+    },
+  })
   @ApiCreatedResponse({ type: ChatEntity })
   @ApiBadRequestResponse({ description: 'Validation error' })
   create(@Body() dto: CreateChatDto): Promise<ChatEntity> {
@@ -49,7 +64,7 @@ export class ChatController {
     description: 'Array (or comma-separated) of participant ids to match',
     type: [String],
   })
-  @ApiOkResponse({ type: ChatEntity, isArray: true })
+  @ApiOkResponse({ type: ChatResponseDto, isArray: true })
   findAll(@Query() query: FindChatsQueryDto): Promise<ChatEntity[]> {
     return this.chatService.findAll(query);
   }
@@ -57,6 +72,17 @@ export class ChatController {
   @Post('find-or-create')
   @ApiOperation({
     summary: 'Find or create a direct chat between exactly two users',
+  })
+  @ApiBody({
+    type: FindOrCreateChatDto,
+    examples: {
+      default: {
+        summary: 'Find direct chat by participant pair',
+        value: {
+          participantIds: ['user_1', 'user_2'],
+        },
+      },
+    },
   })
   @ApiCreatedResponse({ type: ChatEntity })
   @ApiBadRequestResponse({ description: 'Validation error' })
@@ -68,7 +94,7 @@ export class ChatController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a chat by id' })
   @ApiParam({ name: 'id', example: 'ckchat123' })
-  @ApiOkResponse({ type: ChatEntity })
+  @ApiOkResponse({ type: ChatResponseDto })
   @ApiNotFoundResponse({ description: 'Chat not found' })
   findById(@Param('id') id: string): Promise<ChatEntity> {
     return this.chatService.findById(id);

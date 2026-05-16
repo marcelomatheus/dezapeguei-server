@@ -31,7 +31,7 @@ export class ChatGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   constructor(
     private readonly chatService: ChatService,
@@ -180,7 +180,7 @@ export class ChatGateway
   @SubscribeMessage('syncMessages')
   async handleSyncMessages(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() payload: { since?: string },
+    @MessageBody() payload: { chatId?: string; since?: string },
   ) {
     const userId = client.data.userId;
     if (!userId) {
@@ -189,7 +189,28 @@ export class ChatGateway
     }
 
     const since = this.parseDate(payload?.since);
-    const messages = await this.messagesService.getMessagesSince(userId, since);
+    let messages: MessageEntity[];
+
+    if (payload?.chatId) {
+      const chat = await this.chatService.findById(payload.chatId);
+      if (
+        !chat.participants.some((participant) => participant.userId === userId)
+      ) {
+        this.emitError(client, 'Chat not found or unauthorized', {
+          chatId: payload.chatId,
+        });
+        return;
+      }
+
+      messages = await this.messagesService.getMessagesForChatSince(
+        userId,
+        payload.chatId,
+        since,
+      );
+    } else {
+      messages = await this.messagesService.getMessagesSince(userId, since);
+    }
+
     await this.emitMissedMessages(client, messages);
   }
 
@@ -213,6 +234,27 @@ export class ChatGateway
       const userId = client.data.userId;
       if (!userId) {
         this.emitError(client, 'Unable to resolve authenticated user');
+        return;
+      }
+
+      const originalMessage = await this.messagesService.findById(
+        payload.messageId,
+      );
+      const chat = await this.chatService.findById(originalMessage.chatId);
+
+      if (
+        !chat.participants.some((participant) => participant.userId === userId)
+      ) {
+        this.emitError(client, 'Chat not found or unauthorized', {
+          chatId: originalMessage.chatId,
+        });
+        return;
+      }
+
+      if (originalMessage.senderId === userId) {
+        this.emitError(client, 'Only message recipients can mark as read', {
+          chatId: originalMessage.chatId,
+        });
         return;
       }
 
