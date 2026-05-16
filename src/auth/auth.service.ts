@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   UnauthorizedException,
   UnprocessableEntityException,
@@ -10,7 +11,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { handleError } from '../utils/handle.errors.util';
 import { User } from '@supabase/supabase-js';
-import { Response, Request } from 'express';
+import { Response } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -18,7 +19,7 @@ export class AuthService {
     private readonly supabase: SupabaseService,
     private readonly prisma: PrismaService,
   ) {}
-  async login(loginDto: LoginDto, res: Response, req: Request) {
+  async login(loginDto: LoginDto, res: Response) {
     const supabaseClient = this.supabase.createClientForAuthentication();
     const { data, error } = await supabaseClient.auth.signInWithPassword({
       email: loginDto.email,
@@ -113,6 +114,15 @@ export class AuthService {
     });
   }
   async register(registerDto: RegisterDto, res: Response) {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: registerDto.email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already in use');
+    }
+
     const supabaseClient = this.supabase.createClientForAuthentication();
 
     const { data, error } = await supabaseClient.auth.signUp({
