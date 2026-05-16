@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, Wishlist, Offer } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { handleError } from '../utils/handle.errors.util';
@@ -23,7 +27,7 @@ export class WishlistsService {
       });
       return rows.map((r) => this.mapWishlist(r));
     } catch (error) {
-      return handleError(error, 'WishlistsService.findAll');
+      return this.handleServiceError(error, 'WishlistsService.findAll');
     }
   }
 
@@ -36,14 +40,20 @@ export class WishlistsService {
       if (!row) throw new NotFoundException(`Wishlist entry ${id} not found`);
       return this.mapWishlist(row);
     } catch (error) {
-      return handleError(error, 'WishlistsService.findById');
+      return this.handleServiceError(error, 'WishlistsService.findById');
     }
   }
 
   async addItem(dto: AddWishlistItemDto): Promise<WishlistEntity> {
     try {
       await this.ensureUser(dto.userId);
-      await this.ensureOffer(dto.offerId);
+      const offer = await this.ensureOffer(dto.offerId);
+
+      if (offer.sellerId === dto.userId) {
+        throw new BadRequestException(
+          'You cannot add your own offer to wishlist',
+        );
+      }
 
       const entry = await this.prisma.wishlist.upsert({
         where: { userId_offerId: { userId: dto.userId, offerId: dto.offerId } },
@@ -54,7 +64,7 @@ export class WishlistsService {
 
       return this.mapWishlist(entry);
     } catch (error) {
-      return handleError(error, 'WishlistsService.addItem');
+      return this.handleServiceError(error, 'WishlistsService.addItem');
     }
   }
 
@@ -64,7 +74,7 @@ export class WishlistsService {
         where: { userId_offerId: { userId: dto.userId, offerId: dto.offerId } },
       });
     } catch (error) {
-      return handleError(error, 'WishlistsService.removeItem');
+      return this.handleServiceError(error, 'WishlistsService.removeItem');
     }
   }
 
@@ -73,11 +83,12 @@ export class WishlistsService {
     if (!exists) throw new NotFoundException(`User ${userId} not found`);
   }
 
-  private async ensureOffer(offerId: string) {
+  private async ensureOffer(offerId: string): Promise<Offer> {
     const exists = await this.prisma.offer.findUnique({
       where: { id: offerId },
     });
     if (!exists) throw new NotFoundException(`Offer ${offerId} not found`);
+    return exists;
   }
 
   private mapWishlist(
@@ -90,5 +101,12 @@ export class WishlistsService {
       createdAt: wishlist.createdAt,
       offer: wishlist.offer ?? undefined,
     });
+  }
+
+  private handleServiceError(error: unknown, context: string): never {
+    return handleError(
+      error instanceof Error ? error : new Error(String(error)),
+      context,
+    );
   }
 }
