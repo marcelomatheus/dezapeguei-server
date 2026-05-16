@@ -1,14 +1,25 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
+
+  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor());
+
   app.enableCors({
     origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   });
+
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   const config = new DocumentBuilder()
@@ -18,7 +29,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document, {
+  SwaggerModule.setup('v1/api', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
       displayRequestDuration: true,
@@ -27,10 +38,6 @@ async function bootstrap() {
     customSiteTitle: 'DeZapeguei API Documentation',
   });
 
-  app.enableCors({
-    origin: ['*'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  });
   await app.listen(process.env.PORT ?? 8080, '0.0.0.0');
 }
 bootstrap()
