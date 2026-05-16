@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -33,6 +34,29 @@ export class SalesController {
 
   @Post()
   @ApiOperation({ summary: 'Create a sale for an offer' })
+  @ApiBody({
+    type: CreateSaleDto,
+    examples: {
+      pending: {
+        summary: 'Create pending sale',
+        value: {
+          offerId: 'offer_123',
+          buyerId: 'user_buyer_123',
+          amount: 399.9,
+          status: 'PENDING',
+        },
+      },
+      completed: {
+        summary: 'Create completed sale',
+        value: {
+          offerId: 'offer_123',
+          buyerId: 'user_buyer_123',
+          amount: 399.9,
+          status: 'COMPLETED',
+        },
+      },
+    },
+  })
   @ApiCreatedResponse({ type: SaleEntity })
   @ApiBadRequestResponse({ description: 'Validation error' })
   create(@Body() dto: CreateSaleDto): Promise<SaleEntity> {
@@ -58,6 +82,17 @@ export class SalesController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update a sale by id' })
   @ApiParam({ name: 'id', example: 'cksale1' })
+  @ApiBody({
+    type: UpdateSaleDto,
+    examples: {
+      completeSale: {
+        summary: 'Confirm sale completion',
+        value: {
+          status: 'COMPLETED',
+        },
+      },
+    },
+  })
   @ApiOkResponse({ type: SaleEntity })
   update(
     @Param('id') id: string,

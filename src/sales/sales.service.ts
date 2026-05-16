@@ -1,23 +1,41 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { OfferStatus, Prisma, SaleStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { handleError } from '../utils/handle.errors.util';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
-import { FindSalesQueryDto } from './dto/find-sales-query.dto';
+import { FindSalesQueryDto, SaleHistoryRole } from './dto/find-sales-query.dto';
 import { SaleEntity } from './entities/sale.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async create(dto: CreateSaleDto): Promise<SaleEntity> {
     try {
       const offer = await this.prisma.offer.findUnique({
         where: { id: dto.offerId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, sellerId: true, title: true },
       });
       if (!offer) throw new NotFoundException(`Offer ${dto.offerId} not found`);
+
+      if (offer.status !== OfferStatus.ACTIVE) {
+        throw new BadRequestException(
+          `Offer ${dto.offerId} must be ACTIVE to create a sale`,
+        );
+      }
+
+      if (offer.sellerId === dto.buyerId) {
+        throw new BadRequestException('Seller cannot buy their own offer');
+      }
 
       const buyer = await this.prisma.user.findUnique({
         where: { id: dto.buyerId },
@@ -50,6 +68,10 @@ export class SalesService {
         return createdSale;
       });
 
+      if ((dto.status ?? SaleStatus.PENDING) === SaleStatus.COMPLETED) {
+        await this.notifySaleCompletion(result.id, dto.buyerId, offer.title);
+      }
+
       return new SaleEntity(result as unknown as Partial<SaleEntity>);
     } catch (error) {
       return this.handleServiceError(error, 'SalesService.create');
@@ -63,6 +85,29 @@ export class SalesService {
         buyerId: query.buyerId,
         status: query.status,
       };
+
+      if (query.sellerId) {
+        where.offer = {
+          is: {
+            sellerId: query.sellerId,
+          },
+        };
+      }
+
+      if (query.role && query.userId) {
+        if (query.role === SaleHistoryRole.BUYER) {
+          where.buyerId = query.userId;
+        }
+
+        if (query.role === SaleHistoryRole.SELLER) {
+          where.offer = {
+            is: {
+              sellerId: query.userId,
+            },
+          };
+        }
+      }
+
       const rows = await this.prisma.sale.findMany({
         where,
         orderBy: { saleDate: 'desc' },
@@ -88,6 +133,21 @@ export class SalesService {
 
   async update(id: string, dto: UpdateSaleDto): Promise<SaleEntity> {
     try {
+      const current = await this.prisma.sale.findUnique({
+        where: { id },
+        include: {
+          offer: {
+            select: {
+              title: true,
+            },
+          },
+        },
+      });
+
+      if (!current) {
+        throw new NotFoundException(`Sale with id ${id} not found`);
+      }
+
       const result = await this.prisma.$transaction(async (tx) => {
         const updated = await tx.sale.update({
           where: { id },
@@ -106,6 +166,18 @@ export class SalesService {
 
         return updated;
       });
+
+      if (
+        dto.status === SaleStatus.COMPLETED &&
+        current.status !== SaleStatus.COMPLETED
+      ) {
+        await this.notifySaleCompletion(
+          result.id,
+          result.buyerId,
+          current.offer.title,
+        );
+      }
+
       return new SaleEntity(result as unknown as Partial<SaleEntity>);
     } catch (error) {
       return this.handleServiceError(error, 'SalesService.update');
@@ -126,5 +198,20 @@ export class SalesService {
       error instanceof Error ? error : new Error(String(error)),
       context,
     );
+  }
+
+  private async notifySaleCompletion(
+    saleId: string,
+    buyerId: string,
+    offerTitle?: string | null,
+  ): Promise<void> {
+    await this.notificationsService.create({
+      userId: buyerId,
+      message: offerTitle
+        ? `A venda de "${offerTitle}" foi concluida.`
+        : 'Sua compra foi concluida.',
+      redirect: `/sales/${saleId}`,
+      isRead: false,
+    });
   }
 }
