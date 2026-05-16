@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  Matches,
   MinLength,
 } from 'class-validator';
 
@@ -34,8 +35,9 @@ export class FindOffersQueryDto {
   @IsString()
   @MinLength(2)
   @MaxLength(120)
+  @Matches(/[\p{L}\p{N}\s'".,!?_-]+/u)
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : undefined,
+    typeof value === 'string' ? value.trim() || undefined : undefined,
   )
   search?: string;
 }

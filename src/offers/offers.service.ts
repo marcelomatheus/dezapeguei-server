@@ -8,26 +8,28 @@ import { handleError } from '../utils/handle.errors.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { StorageBucketType } from '../storage/entity/bucket.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { FindOffersQueryDto } from './dto/find-offers-query.dto';
-import { OfferEntity } from './entities/offer.entity';
+import { OfferResponseDto } from './dto/offer-response.dto';
 
 @Injectable()
 export class OffersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
-  async create(dto: CreateOfferDto): Promise<OfferEntity> {
+  async create(dto: CreateOfferDto): Promise<OfferResponseDto> {
     try {
       await this.ensureRelations(dto.categoryId, dto.sellerId);
 
       const slugBase = this.slugify(dto.title);
       const slug = await this.ensureUniqueSlug(slugBase);
 
-      return await this.prisma.offer.create({
+      const created = await this.prisma.offer.create({
         data: {
           title: dto.title,
           description: dto.description,
@@ -57,29 +59,117 @@ export class OffersService {
         },
         include: { keywords: true, specifications: true },
       });
+      return new OfferResponseDto({
+        ...(created as unknown as Partial<OfferResponseDto>),
+        wishlistCount: 0,
+      });
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.create');
     }
   }
 
-  async findAll(query: FindOffersQueryDto): Promise<OfferEntity[]> {
+  async findAll(query: FindOffersQueryDto): Promise<OfferResponseDto[]> {
     try {
+      if (query.search) {
+        const conditions: Prisma.Sql[] = [Prisma.sql`o."deletedAt" IS NULL`];
+
+        if (query.status) {
+          conditions.push(
+            Prisma.sql`o."status" = ${query.status}::"OfferStatus"`,
+          );
+        }
+        if (query.sellerId) {
+          conditions.push(Prisma.sql`o."sellerId" = ${query.sellerId}`);
+        }
+        if (query.categoryId) {
+          conditions.push(Prisma.sql`o."categoryId" = ${query.categoryId}`);
+        }
+
+        const vector = Prisma.sql`
+          to_tsvector(
+            'portuguese',
+            coalesce(o."title", '') || ' ' ||
+            coalesce(o."description", '') || ' ' ||
+            coalesce((
+              SELECT string_agg(k."word", ' ')
+              FROM "_KeywordToOffer" ko
+              JOIN "Keyword" k ON k."id" = ko."A"
+              WHERE ko."B" = o."id"
+            ), '')
+          )
+        `;
+
+        const rankedOffers = await this.prisma.$queryRaw<Array<{ id: string }>>(
+          Prisma.sql`
+            SELECT o."id"
+            FROM "Offer" o
+            WHERE ${Prisma.join(conditions, ' AND ')}
+              AND ${vector} @@ plainto_tsquery('portuguese', ${query.search})
+            ORDER BY ts_rank(${vector}, plainto_tsquery('portuguese', ${query.search})) DESC,
+                     o."createdAt" DESC
+          `,
+        );
+
+        if (rankedOffers.length === 0) {
+          return [];
+        }
+
+        const rankMap = new Map(
+          rankedOffers.map((item, index) => [item.id, index]),
+        );
+
+        const offers = await this.prisma.offer.findMany({
+          where: { id: { in: rankedOffers.map((item) => item.id) } },
+          include: {
+            _count: {
+              select: {
+                wishlist: true,
+              },
+            },
+            keywords: true,
+            specifications: true,
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+                rating: true,
+              },
+            },
+          },
+        });
+
+        return offers
+          .sort((a, b) => {
+            const rankA = rankMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+            const rankB = rankMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+            return rankA - rankB;
+          })
+          .map(
+            (offer) =>
+              new OfferResponseDto({
+                ...(offer as unknown as Partial<OfferResponseDto>),
+                wishlistCount: offer._count?.wishlist ?? 0,
+              }),
+          );
+      }
+
       const where: Prisma.OfferWhereInput = {
         status: query.status,
         sellerId: query.sellerId,
         categoryId: query.categoryId,
-        OR: query.search
-          ? [
-              { title: { contains: query.search, mode: 'insensitive' } },
-              { description: { contains: query.search, mode: 'insensitive' } },
-            ]
-          : undefined,
+        deletedAt: null,
       };
 
-      return await this.prisma.offer.findMany({
+      const offers = await this.prisma.offer.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         include: {
+          _count: {
+            select: {
+              wishlist: true,
+            },
+          },
           keywords: true,
           specifications: true,
           seller: {
@@ -92,16 +182,28 @@ export class OffersService {
           },
         },
       });
+      return offers.map(
+        (offer) =>
+          new OfferResponseDto({
+            ...(offer as unknown as Partial<OfferResponseDto>),
+            wishlistCount: offer._count?.wishlist ?? 0,
+          }),
+      );
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.findAll');
     }
   }
 
-  async findById(id: string): Promise<OfferEntity> {
+  async findById(id: string): Promise<OfferResponseDto> {
     try {
       const offer = await this.prisma.offer.findUnique({
         where: { id },
         include: {
+          _count: {
+            select: {
+              wishlist: true,
+            },
+          },
           keywords: true,
           specifications: true,
           seller: {
@@ -120,17 +222,32 @@ export class OffersService {
       if (!offer) {
         throw new NotFoundException(`Offer with id ${id} not found`);
       }
-      return offer;
+      return new OfferResponseDto({
+        ...(offer as unknown as Partial<OfferResponseDto>),
+        wishlistCount: offer._count?.wishlist ?? 0,
+      });
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.findById');
     }
   }
 
-  async update(id: string, dto: UpdateOfferDto): Promise<OfferEntity> {
+  async update(id: string, dto: UpdateOfferDto): Promise<OfferResponseDto> {
     try {
       if (dto.categoryId || dto.sellerId) {
         await this.ensureRelations(dto.categoryId, dto.sellerId);
       }
+
+      const currentOffer =
+        dto.price !== undefined
+          ? await this.prisma.offer.findUnique({
+              where: { id },
+              select: {
+                id: true,
+                title: true,
+                price: true,
+              },
+            })
+          : null;
 
       const data: Prisma.OfferUpdateInput = {
         title: dto.title,
@@ -179,22 +296,60 @@ export class OffersService {
       const updated = await this.prisma.offer.update({
         where: { id },
         data,
-        include: { keywords: true, specifications: true },
+        include: {
+          _count: {
+            select: {
+              wishlist: true,
+            },
+          },
+          keywords: true,
+          specifications: true,
+        },
       });
-      return new OfferEntity(updated as unknown as Partial<OfferEntity>);
+
+      if (
+        currentOffer &&
+        dto.price !== undefined &&
+        dto.price < currentOffer.price
+      ) {
+        await this.notifyWishlistersPriceDrop(
+          id,
+          currentOffer.title,
+          currentOffer.price,
+          dto.price,
+        );
+      }
+
+      return new OfferResponseDto({
+        ...(updated as unknown as Partial<OfferResponseDto>),
+        wishlistCount: updated._count?.wishlist ?? 0,
+      });
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.update');
     }
   }
 
-  async remove(id: string): Promise<OfferEntity> {
+  async updateStatus(
+    id: string,
+    status: OfferStatus,
+  ): Promise<OfferResponseDto> {
+    return this.update(id, { status });
+  }
+
+  async remove(id: string): Promise<OfferResponseDto> {
     try {
       await this.prisma.specification.deleteMany({ where: { offerId: id } });
       const deleted = await this.prisma.offer.delete({
         where: { id },
-        include: { keywords: true, specifications: true },
+        include: {
+          keywords: true,
+          specifications: true,
+        },
       });
-      return new OfferEntity(deleted as unknown as Partial<OfferEntity>);
+      return new OfferResponseDto({
+        ...(deleted as unknown as Partial<OfferResponseDto>),
+        wishlistCount: 0,
+      });
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.remove');
     }
@@ -233,17 +388,32 @@ export class OffersService {
     base: string,
     ignoreId?: string,
   ): Promise<string> {
-    let slug = base;
-    let suffix = 0;
-    while (true) {
-      const existing = await this.prisma.offer.findFirst({
-        where: { slug, NOT: ignoreId ? { id: ignoreId } : undefined },
-        select: { id: true },
-      });
-      if (!existing) return slug;
-      suffix += 1;
-      slug = `${base}-${suffix}`;
+    const existingSlugs = await this.prisma.offer.findMany({
+      where: {
+        NOT: ignoreId ? { id: ignoreId } : undefined,
+        OR: [{ slug: base }, { slug: { startsWith: `${base}-` } }],
+      },
+      select: { slug: true },
+    });
+
+    if (existingSlugs.length === 0) {
+      return base;
     }
+
+    const usedSlugs = new Set(existingSlugs.map((entry) => entry.slug));
+    if (!usedSlugs.has(base)) {
+      return base;
+    }
+
+    const suffixes = [...usedSlugs]
+      .map((slug) => {
+        const match = new RegExp(`^${base}-(\\d+)$`).exec(slug);
+        return match ? Number(match[1]) : null;
+      })
+      .filter((value): value is number => value !== null);
+
+    const nextSuffix = (suffixes.length > 0 ? Math.max(...suffixes) : 0) + 1;
+    return `${base}-${nextSuffix}`;
   }
 
   async uploadImages(
@@ -277,7 +447,7 @@ export class OffersService {
       return { imageUrls };
     } catch (error) {
       throw new BadRequestException(
-        `Failed to upload images: ${error.message}`,
+        `Failed to upload images: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -286,6 +456,35 @@ export class OffersService {
     return handleError(
       error instanceof Error ? error : new Error(String(error)),
       context,
+    );
+  }
+
+  private async notifyWishlistersPriceDrop(
+    offerId: string,
+    offerTitle: string,
+    oldPrice: number,
+    newPrice: number,
+  ): Promise<void> {
+    const wishlisters = await this.prisma.wishlist.findMany({
+      where: { offerId },
+      select: {
+        userId: true,
+      },
+    });
+
+    if (wishlisters.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      wishlisters.map((entry) =>
+        this.notificationsService.create({
+          userId: entry.userId,
+          message: `Preco de "${offerTitle}" caiu de R$ ${oldPrice.toFixed(2)} para R$ ${newPrice.toFixed(2)}.`,
+          redirect: `/offers/${offerId}`,
+          isRead: false,
+        }),
+      ),
     );
   }
 }

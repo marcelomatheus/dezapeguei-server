@@ -2,6 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OfferStatus, OfferCondition } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsEnum,
   IsNotEmpty,
@@ -48,7 +50,9 @@ export class CreateOfferDto {
   price!: number;
 
   @ApiPropertyOptional({ example: 10, description: 'Optional percentage off' })
-  @Transform(({ value }) => (value === undefined ? value : Number(value)))
+  @Transform(({ value }: { value: unknown }) =>
+    value === undefined ? undefined : Number(value),
+  )
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -64,6 +68,8 @@ export class CreateOfferDto {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5)
   @IsString({ each: true })
   imageUrl?: string[];
 

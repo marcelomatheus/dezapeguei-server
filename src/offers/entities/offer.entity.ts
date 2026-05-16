@@ -73,6 +73,17 @@ export class OfferEntity {
   @Expose()
   status!: OfferStatus;
 
+  @ApiProperty({
+    example: false,
+    description: 'Indicates when the offer should display the sold badge.',
+  })
+  @Expose()
+  get isSold(): boolean {
+    return (
+      this.status === OfferStatus.SOLD || this.status === OfferStatus.SOLD_OUT
+    );
+  }
+
   @ApiProperty({ example: 'ckcat123' })
   @Expose()
   categoryId!: string;
