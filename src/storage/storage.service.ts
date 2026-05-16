@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { handleError } from '../utils/handle.errors.util';
 import { StorageBucketType } from './entity/bucket.entity';
 import { v4 as uuidv4 } from 'uuid';
+import sharp from 'sharp';
 
 const DEFAULT_ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -123,10 +124,12 @@ export class StorageService {
     const targetFileName = options.customFileName ?? `${uuidv4()}.${ext}`;
     const storagePath = `${path}/${targetFileName}`;
 
+    const optimizedImage = await this.optimizeImage(file.buffer, file.mimetype);
+
     const { data, error } = await supabaseClient.storage
       .from(bucket)
-      .upload(storagePath, file.buffer, {
-        contentType: file.mimetype,
+      .upload(storagePath, optimizedImage.buffer, {
+        contentType: optimizedImage.mimetype,
       });
 
     if (error) {
@@ -142,6 +145,43 @@ export class StorageService {
       publicUrl: publicUrlData.publicUrl,
       path: data.path,
       fileName: targetFileName,
+    };
+  }
+
+  private async optimizeImage(
+    buffer: Buffer,
+    mimetype: string,
+  ): Promise<{ buffer: Buffer; mimetype: string }> {
+    if (!mimetype.startsWith('image/')) {
+      return { buffer, mimetype };
+    }
+
+    if (mimetype === 'image/gif') {
+      return { buffer, mimetype };
+    }
+
+    const transformer = sharp(buffer).rotate().resize({
+      width: 1920,
+      withoutEnlargement: true,
+    });
+
+    if (mimetype === 'image/png') {
+      return {
+        buffer: await transformer.png({ compressionLevel: 9 }).toBuffer(),
+        mimetype,
+      };
+    }
+
+    if (mimetype === 'image/webp') {
+      return {
+        buffer: await transformer.webp({ quality: 80 }).toBuffer(),
+        mimetype,
+      };
+    }
+
+    return {
+      buffer: await transformer.jpeg({ quality: 80, mozjpeg: true }).toBuffer(),
+      mimetype: 'image/jpeg',
     };
   }
 
