@@ -33,7 +33,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadedFile } from '@nestjs/common';
 import { SupabaseAuthGuard } from '../auth/guards/user-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { User } from '@prisma/client';
+import type { User } from '@prisma/client';
 
 @ApiTags('Users')
 @UseInterceptors(ClassSerializerInterceptor)
