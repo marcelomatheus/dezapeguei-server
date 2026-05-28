@@ -54,7 +54,7 @@ REDIS_URL=
 SUPABASE_URL=
 SUPABASE_KEY=
 SUPABASE_JWT_SECRET=
-PORT=8080
+PORT=8081
 ```
 3) Instale dependências: `npm install`.
 4) Rode migrações: `npx prisma migrate dev` (ou aponte para migrações existentes em `prisma/migrations`).
