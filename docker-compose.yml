@@ -9,8 +9,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dezapeguei.rule=Host(`${DOMAIN_NAME}`)"
-      - "traefik.http.routers.dezapeguei.entrypoints=websecure"
-      - "traefik.http.routers.dezapeguei.tls.certresolver=myresolver"
+      - "traefik.http.routers.dezapeguei.entrypoints=web"
       - "traefik.http.services.dezapeguei.loadbalancer.server.port=8081"
       - "traefik.docker.network=celo-network"
     build:
