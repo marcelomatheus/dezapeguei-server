@@ -2,37 +2,40 @@ services:
   server:
     container_name: dezapeguei-container
     restart: always
+    env_file:
+      - .env
     networks:
       - celo-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dezapeguei.rule=Host($${DOMAIN_NAME})"
       - "traefik.http.routers.dezapeguei.entrypoints=websecure"
-      - "traefik.http.routers.dezapeguei.tls.certresolver=myresolver" 
+      - "traefik.http.routers.dezapeguei.tls.certresolver=myresolver"
       - "traefik.http.services.dezapeguei.loadbalancer.server.port=8081"
-      - "traefik.docker.network=celo-network" 
+      - "traefik.docker.network=celo-network"
     build:
       context: .
       dockerfile: Dockerfile
       args:
         DATABASE_URL: ${DATABASE_URL}
+        DIRECT_URL: ${DIRECT_URL}
     environment:
       NODE_ENV: production
-      PORT: 8081
+      ENVIRONMENT: production
+      PORT: 8080
       TZ: America/Sao_Paulo
       APP_TIMEZONE: America/Sao_Paulo
       DATABASE_URL: ${DATABASE_URL}
-      FRONTEND_URL: ${FRONTEND_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      MAILGUN_API_KEY: ${MAILGUN_API_KEY}
-      MAILGUN_DOMAIN: ${MAILGUN_DOMAIN}
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      REDIS_DB: ${REDIS_DB}
+      DIRECT_URL: ${DIRECT_URL}
       REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB:-0}
       REDIS_URL: ${REDIS_URL}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-    command: ["npm", "start"]
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    command: ["npm", "run", "start:prod"]
 
 networks:
   celo-network:
