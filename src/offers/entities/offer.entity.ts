@@ -34,6 +34,46 @@ export class SimpleSpecificationEntity {
   }
 }
 
+export class SimpleEntrepreneurSummaryEntity {
+  @ApiProperty({ example: true })
+  @Expose()
+  isActive!: boolean;
+
+  @ApiProperty({ example: '2026-06-22T00:00:00.000Z', nullable: true })
+  @Expose()
+  verifiedAt!: Date | null;
+
+  @ApiProperty({ example: 'Marcelo Store', nullable: true })
+  @Expose()
+  businessName!: string | null;
+
+  @ApiProperty({ example: 'marcelo-store', nullable: true })
+  @Expose()
+  storefrontSlug!: string | null;
+}
+
+export class SimpleOfferSellerEntity {
+  @ApiProperty({ example: 'cku123' })
+  @Expose()
+  id!: string;
+
+  @ApiProperty({ example: 'Marcelo', nullable: true })
+  @Expose()
+  name!: string | null;
+
+  @ApiProperty({ nullable: true })
+  @Expose()
+  avatar!: string | null;
+
+  @ApiProperty({ example: 4.8 })
+  @Expose()
+  rating!: number;
+
+  @ApiProperty({ type: SimpleEntrepreneurSummaryEntity })
+  @Expose()
+  entrepreneur!: SimpleEntrepreneurSummaryEntity;
+}
+
 export class OfferEntity {
   @ApiProperty({ example: 'ckof123' })
   @Expose()
@@ -101,6 +141,11 @@ export class OfferEntity {
   @Type(() => SimpleSpecificationEntity)
   @Expose()
   specifications?: SimpleSpecificationEntity[];
+
+  @ApiProperty({ type: SimpleOfferSellerEntity, required: false })
+  @Type(() => SimpleOfferSellerEntity)
+  @Expose()
+  seller?: SimpleOfferSellerEntity;
 
   @ApiProperty({ example: '2025-01-01T10:00:00.000Z' })
   @Expose()

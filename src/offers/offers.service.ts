@@ -13,6 +13,7 @@ import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { FindOffersQueryDto } from './dto/find-offers-query.dto';
 import { OfferResponseDto } from './dto/offer-response.dto';
+import { EntrepreneurAccessService } from '../entrepreneur/entrepreneur-access.service';
 
 @Injectable()
 export class OffersService {
@@ -20,6 +21,7 @@ export class OffersService {
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly notificationsService: NotificationsService,
+    private readonly entrepreneurAccessService: EntrepreneurAccessService,
   ) {}
 
   async create(dto: CreateOfferDto): Promise<OfferResponseDto> {
@@ -59,10 +61,7 @@ export class OffersService {
         },
         include: { keywords: true, specifications: true },
       });
-      return new OfferResponseDto({
-        ...(created as unknown as Partial<OfferResponseDto>),
-        wishlistCount: 0,
-      });
+      return this.toOfferResponse(created, 0);
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.create');
     }
@@ -103,9 +102,21 @@ export class OffersService {
           Prisma.sql`
             SELECT o."id"
             FROM "Offer" o
+            LEFT JOIN "User" u ON u."id" = o."sellerId"
+            LEFT JOIN "EntrepreneurProfile" ep ON ep."userId" = u."id"
             WHERE ${Prisma.join(conditions, ' AND ')}
               AND ${vector} @@ plainto_tsquery('portuguese', ${query.search})
             ORDER BY ts_rank(${vector}, plainto_tsquery('portuguese', ${query.search})) DESC,
+                     CASE WHEN u."entrepreneurVerifiedAt" IS NOT NULL
+                       AND ep."status" = 'APPROVED'
+                       AND EXISTS (
+                         SELECT 1
+                         FROM "EntrepreneurSubscription" es
+                         WHERE es."userId" = u."id"
+                           AND es."status" = 'ACTIVE'
+                           AND es."expiresAt" > now()
+                       )
+                     THEN 1 ELSE 0 END DESC,
                      o."createdAt" DESC
           `,
         );
@@ -128,30 +139,24 @@ export class OffersService {
             },
             keywords: true,
             specifications: true,
-            seller: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
-                rating: true,
-              },
-            },
+            seller: this.sellerInclude(),
           },
         });
 
-        return offers
-          .sort((a, b) => {
+        const mapped = await Promise.all(
+          offers
+            .sort((a, b) => {
             const rankA = rankMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
             const rankB = rankMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
-            return rankA - rankB;
+            if (rankA !== rankB) return rankA - rankB;
+            return +new Date(b.createdAt) - +new Date(a.createdAt);
           })
-          .map(
-            (offer) =>
-              new OfferResponseDto({
-                ...(offer as unknown as Partial<OfferResponseDto>),
-                wishlistCount: offer._count?.wishlist ?? 0,
-              }),
-          );
+            .map((offer) =>
+              this.toOfferResponse(offer, offer._count?.wishlist ?? 0),
+            ),
+        );
+
+        return mapped;
       }
 
       const where: Prisma.OfferWhereInput = {
@@ -172,23 +177,15 @@ export class OffersService {
           },
           keywords: true,
           specifications: true,
-          seller: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-              rating: true,
-            },
-          },
+          seller: this.sellerInclude(),
         },
       });
-      return offers.map(
-        (offer) =>
-          new OfferResponseDto({
-            ...(offer as unknown as Partial<OfferResponseDto>),
-            wishlistCount: offer._count?.wishlist ?? 0,
-          }),
+      const mapped = await Promise.all(
+        offers.map((offer) =>
+          this.toOfferResponse(offer, offer._count?.wishlist ?? 0),
+        ),
       );
+      return this.prioritizeEntrepreneurOffers(mapped);
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.findAll');
     }
@@ -206,26 +203,14 @@ export class OffersService {
           },
           keywords: true,
           specifications: true,
-          seller: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-              rating: true,
-              city: true,
-              state: true,
-            },
-          },
+          seller: this.sellerInclude(),
         },
       });
 
       if (!offer) {
         throw new NotFoundException(`Offer with id ${id} not found`);
       }
-      return new OfferResponseDto({
-        ...(offer as unknown as Partial<OfferResponseDto>),
-        wishlistCount: offer._count?.wishlist ?? 0,
-      });
+      return this.toOfferResponse(offer, offer._count?.wishlist ?? 0);
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.findById');
     }
@@ -320,10 +305,7 @@ export class OffersService {
         );
       }
 
-      return new OfferResponseDto({
-        ...(updated as unknown as Partial<OfferResponseDto>),
-        wishlistCount: updated._count?.wishlist ?? 0,
-      });
+      return this.toOfferResponse(updated, updated._count?.wishlist ?? 0);
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.update');
     }
@@ -346,10 +328,7 @@ export class OffersService {
           specifications: true,
         },
       });
-      return new OfferResponseDto({
-        ...(deleted as unknown as Partial<OfferResponseDto>),
-        wishlistCount: 0,
-      });
+      return this.toOfferResponse(deleted, 0);
     } catch (error) {
       return this.handleServiceError(error, 'OffersService.remove');
     }
@@ -457,6 +436,98 @@ export class OffersService {
       error instanceof Error ? error : new Error(String(error)),
       context,
     );
+  }
+
+  private sellerInclude() {
+    return {
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        rating: true,
+        city: true,
+        state: true,
+        entrepreneurVerifiedAt: true,
+        entrepreneurProfile: {
+          select: {
+            businessName: true,
+            status: true,
+            verifiedAt: true,
+          },
+        },
+        entrepreneurStorefront: {
+          select: { slug: true },
+        },
+        entrepreneurSubscriptions: {
+          where: {
+            status: 'ACTIVE' as const,
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    };
+  }
+
+  private async toOfferResponse(
+    offer: Record<string, any>,
+    wishlistCount: number,
+  ): Promise<OfferResponseDto> {
+    const seller = offer.seller;
+    const entrepreneur =
+      seller?.id !== undefined
+        ? this.entrepreneurSummaryFromSeller(seller)
+        : offer.sellerId
+          ? await this.entrepreneurAccessService.getSummary(offer.sellerId)
+          : {
+              isActive: false,
+              verifiedAt: null,
+              businessName: null,
+              storefrontSlug: null,
+            };
+
+    return new OfferResponseDto({
+      ...(offer as unknown as Partial<OfferResponseDto>),
+      seller: seller
+        ? {
+            id: seller.id,
+            name: seller.name,
+            avatar: seller.avatar,
+            rating: seller.rating,
+            entrepreneur,
+          }
+        : undefined,
+      wishlistCount,
+      badges: entrepreneur.isActive ? ['ENTREPRENEUR_VERIFIED'] : [],
+    });
+  }
+
+  private entrepreneurSummaryFromSeller(seller: Record<string, any>) {
+    const profile = seller.entrepreneurProfile;
+    const isActive = Boolean(
+      seller.entrepreneurVerifiedAt &&
+        profile?.status === 'APPROVED' &&
+        seller.entrepreneurSubscriptions?.length > 0,
+    );
+
+    return {
+      isActive,
+      verifiedAt: isActive
+        ? (profile?.verifiedAt ?? seller.entrepreneurVerifiedAt ?? null)
+        : null,
+      businessName: profile?.businessName ?? null,
+      storefrontSlug: seller.entrepreneurStorefront?.slug ?? null,
+    };
+  }
+
+  private prioritizeEntrepreneurOffers(offers: OfferResponseDto[]) {
+    return [...offers].sort((a, b) => {
+      const aBadge = a.badges.includes('ENTREPRENEUR_VERIFIED') ? 1 : 0;
+      const bBadge = b.badges.includes('ENTREPRENEUR_VERIFIED') ? 1 : 0;
+      if (aBadge !== bBadge) return bBadge - aBadge;
+      return 0;
+    });
   }
 
   private async notifyWishlistersPriceDrop(

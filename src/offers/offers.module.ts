@@ -6,9 +6,16 @@ import { OwnerGuard } from './guards/owner.guard';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
+import { EntrepreneurModule } from '../entrepreneur/entrepreneur.module';
 
 @Module({
-  imports: [StorageModule, AuthModule, NotificationsModule, UsersModule],
+  imports: [
+    StorageModule,
+    AuthModule,
+    NotificationsModule,
+    UsersModule,
+    EntrepreneurModule,
+  ],
   controllers: [OffersController],
   providers: [OffersService, OwnerGuard],
 })

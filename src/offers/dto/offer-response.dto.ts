@@ -10,8 +10,17 @@ export class OfferResponseDto extends OfferEntity {
   @Expose()
   wishlistCount!: number;
 
+  @ApiProperty({
+    example: ['ENTREPRENEUR_VERIFIED'],
+    description: 'Computed display badges for the offer',
+    type: [String],
+  })
+  @Expose()
+  badges!: string[];
+
   constructor(partial: Partial<OfferResponseDto>) {
     super(partial);
     this.wishlistCount = partial.wishlistCount ?? 0;
+    this.badges = partial.badges ?? [];
   }
 }
