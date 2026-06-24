@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { handleError } from '../utils/handle.errors.util';
 import { StorageBucketType } from './entity/bucket.entity';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 
 const DEFAULT_ALLOWED_MIME_TYPES = [
@@ -121,7 +121,7 @@ export class StorageService {
       throw new BadRequestException('Path cannot be empty');
     }
 
-    const targetFileName = options.customFileName ?? `${uuidv4()}.${ext}`;
+    const targetFileName = options.customFileName ?? `${randomUUID()}.${ext}`;
     const storagePath = `${path}/${targetFileName}`;
 
     const optimizedImage = await this.optimizeImage(file.buffer, file.mimetype);
