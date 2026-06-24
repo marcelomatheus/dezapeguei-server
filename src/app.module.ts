@@ -15,6 +15,9 @@ import { SupabaseModule } from './supabase/supabase.module';
 import { StorageModule } from './storage/storage.module';
 import { OpenaiModule } from './openai/openai.module';
 import { SocketStoreModule } from './socket-store/socket-store.module';
+import { EntrepreneurModule } from './entrepreneur/entrepreneur.module';
+import { PaymentsModule } from './payments/payments.module';
+import { CommunitiesModule } from './communities/communities.module';
 import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -48,6 +51,9 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     StorageModule,
     OpenaiModule,
     SocketStoreModule,
+    EntrepreneurModule,
+    PaymentsModule,
+    CommunitiesModule,
   ],
   controllers: [AppController],
   providers: [
