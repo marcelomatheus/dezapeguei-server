@@ -1,0 +1,59 @@
+model Community {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  members CommunityMember[]
+  messages CommunityMessage[]
+
+  @@index([isActive])
+}
+
+model CommunityMember {
+  id          String              @id @default(cuid())
+  communityId String
+  userId      String
+  role        CommunityMemberRole @default(MEMBER)
+  joinedAt    DateTime            @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([userId])
+}
+
+model CommunityMessage {
+  id          String               @id @default(cuid())
+  communityId String
+  userId      String
+  content     String
+  offerId     String?
+  type        CommunityMessageType @default(TEXT)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @default(now()) @updatedAt
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer Offer? @relation(fields: [offerId], references: [id], onDelete: SetNull)
+
+  @@index([communityId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@index([offerId])
+}
+
+enum CommunityMemberRole {
+  MEMBER
+  MODERATOR
+  ADMIN
+}
+
+enum CommunityMessageType {
+  TEXT
+  OFFER
+}

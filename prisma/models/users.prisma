@@ -13,6 +13,7 @@ model User {
   city           String?
   state          String?
   plan           Plan     @default(FREE)
+  entrepreneurVerifiedAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @default(now()) @updatedAt
 
@@ -23,6 +24,15 @@ model User {
   notifications Notification[]
   offers        Offer[]
   salesAsBuyer  Sale[]         @relation("buyer_sales")
+  entrepreneurProfile EntrepreneurProfile?
+  entrepreneurSubscriptions EntrepreneurSubscription[]
+  paymentSessions PaymentSession[]
+  communityMemberships CommunityMember[]
+  communityMessages CommunityMessage[]
+  entrepreneurStorefront EntrepreneurStorefront?
+  entrepreneurQuickReplies EntrepreneurQuickReply[]
+  entrepreneurCatalogCategories EntrepreneurCatalogCategory[]
+  entrepreneurFeaturedOffers EntrepreneurFeaturedOffer[]
 }
 
 enum Plan {

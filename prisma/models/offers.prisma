@@ -15,15 +15,20 @@ model Offer {
   deletedAt      DateTime?
   updatedAt      DateTime        @default(now()) @updatedAt
   categoryId     String
+  entrepreneurCatalogCategoryId String?
   category       Category        @relation(fields: [categoryId], references: [id])
+  entrepreneurCatalogCategory EntrepreneurCatalogCategory? @relation(fields: [entrepreneurCatalogCategoryId], references: [id], onDelete: SetNull)
   seller         User            @relation(fields: [sellerId], references: [id])
   chats          Chat[]
   sale           Sale?           @relation("offer_sale")
   wishlist       Wishlist[]
+  communityMessages CommunityMessage[]
+  entrepreneurFeaturedOffers EntrepreneurFeaturedOffer[]
 
   @@index([sellerId, status])
   @@index([status])
   @@index([categoryId, status, createdAt(sort: Desc)])
+  @@index([entrepreneurCatalogCategoryId])
   @@index([deletedAt])
 }
 

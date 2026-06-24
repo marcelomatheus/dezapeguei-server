@@ -1,0 +1,35 @@
+model PaymentSession {
+  id                String               @id @default(cuid())
+  userId            String
+  subscriptionId    String
+  provider          PaymentProvider      @default(STRIPE_SIMULATED)
+  providerSessionId String               @unique
+  status            PaymentSessionStatus @default(CREATED)
+  checkoutUrl       String
+  successUrl        String
+  cancelUrl         String
+  amount            Int                  @default(9900)
+  currency          String               @default("BRL")
+  metadata          Json?
+  processedAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @default(now()) @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription EntrepreneurSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([subscriptionId])
+}
+
+enum PaymentProvider {
+  STRIPE_SIMULATED
+}
+
+enum PaymentSessionStatus {
+  CREATED
+  PENDING
+  PAID
+  CANCELLED
+  FAILED
+}
