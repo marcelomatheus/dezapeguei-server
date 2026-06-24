@@ -4,8 +4,6 @@ import {
   IsEmail,
   IsNotEmpty,
   IsOptional,
-  Matches,
-  MinLength,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -26,15 +24,10 @@ export class RegisterDto {
 
   @ApiProperty({
     description: 'User password',
-    example: 'SecurePass123!',
-    minLength: 8,
+    example: 'senha123',
   })
   @IsString()
-  @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/, {
-    message:
-      'password is too weak. Use at least one uppercase, one lowercase, one number and one special character',
-  })
+  @IsNotEmpty()
   password!: string;
 
   @ApiProperty({
