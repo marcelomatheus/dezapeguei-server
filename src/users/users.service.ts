@@ -10,7 +10,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { UserEntity } from './entities/user.entity';
-import { v4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { StorageService } from '../storage/storage.service';
 import { StorageBucketType } from '../storage/entity/bucket.entity';
 
@@ -159,7 +159,7 @@ export class UsersService {
     name,
   }: CreateUserDto): Prisma.UserCreateInput {
     return {
-      id: v4(),
+      id: randomUUID(),
       email,
       phone,
       instagram: instagram ?? null,

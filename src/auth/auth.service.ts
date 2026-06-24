@@ -26,11 +26,19 @@ export class AuthService {
       password: loginDto.password,
     });
     if (error) {
-      throw new UnauthorizedException('Invalid credentials');
+      if (this.isEmailNotConfirmedError(error)) {
+        throw new UnauthorizedException(
+          'Confirme sua conta pelo e-mail que enviamos antes de entrar.',
+        );
+      }
+
+      throw new UnauthorizedException('E-mail ou senha inválidos.');
     }
 
     if (!data?.session) {
-      throw new UnauthorizedException('No session returned from login');
+      throw new UnauthorizedException(
+        'Não foi possível iniciar a sessão. Tente novamente.',
+      );
     }
 
     const { session, user: supabaseUser } = data;
@@ -39,7 +47,7 @@ export class AuthService {
     });
 
     if (!prismaUser) {
-      throw new UnauthorizedException('User not found in database');
+      throw new UnauthorizedException('Usuário não encontrado.');
     }
 
     return res.json({
@@ -120,7 +128,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already in use');
+      throw new ConflictException('Este e-mail já está cadastrado.');
     }
 
     const supabaseClient = this.supabase.createClientForAuthentication();
@@ -128,6 +136,9 @@ export class AuthService {
     const { data, error } = await supabaseClient.auth.signUp({
       email: registerDto.email,
       password: registerDto.password,
+      options: {
+        emailRedirectTo: process.env.CLIENT_BASE_URL,
+      },
     });
 
     if (error) {
@@ -161,6 +172,9 @@ export class AuthService {
       });
 
     return res.status(201).json({
+      emailConfirmationRequired: !data.session,
+      message:
+        'Cadastro realizado. Enviamos um e-mail de confirmação para ativar sua conta.',
       user: {
         id: prismaUser.id,
         name: prismaUser.name,
@@ -178,6 +192,18 @@ export class AuthService {
         updatedAt: prismaUser.updatedAt.toISOString(),
       },
     });
+  }
+
+  private isEmailNotConfirmedError(error: { message?: string; code?: string }) {
+    const code = error.code?.toLowerCase();
+    const message = error.message?.toLowerCase() ?? '';
+
+    return (
+      code === 'email_not_confirmed' ||
+      code === 'email_not_confirmed_error' ||
+      message.includes('email not confirmed') ||
+      message.includes('not confirmed')
+    );
   }
 
   logout(res: Response) {

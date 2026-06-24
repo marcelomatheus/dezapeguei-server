@@ -107,6 +107,13 @@ export class UserEntity {
   plan!: Plan;
 
   @ApiProperty({
+    description: 'Timestamp when the entrepreneur badge was activated.',
+    nullable: true,
+  })
+  @Expose()
+  entrepreneurVerifiedAt!: Date | null;
+
+  @ApiProperty({
     description: 'Creation timestamp in ISO 8601 format.',
     example: '2024-10-12T15:30:00.000Z',
   })

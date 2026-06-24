@@ -36,7 +36,7 @@ export class AuthController {
         summary: 'Valid credentials',
         value: {
           email: 'joao@example.com',
-          password: 'SecurePass123!',
+          password: 'senha123',
         },
       },
     },
@@ -83,7 +83,7 @@ export class AuthController {
         value: {
           name: 'Joao Silva',
           email: 'joao@example.com',
-          password: 'SecurePass123!',
+          password: 'senha123',
           phone: '+55 11 98888-7777',
           cpf: '123.456.789-00',
         },
@@ -94,6 +94,9 @@ export class AuthController {
     description: 'Registered user profile',
     schema: {
       example: {
+        emailConfirmationRequired: true,
+        message:
+          'Cadastro realizado. Enviamos um e-mail de confirmação para ativar sua conta.',
         user: {
           id: 'user_123',
           name: 'Joao Silva',
