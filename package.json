@@ -8,6 +8,7 @@
   "scripts": {
     "build": "npx prisma generate && tsc -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up -d",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -89,6 +90,7 @@
     "testEnvironment": "node"
   },
   "prisma": {
-    "schema": "./prisma"
+    "schema": "./prisma",
+    "seed": "ts-node prisma/seed.ts"
   }
 }

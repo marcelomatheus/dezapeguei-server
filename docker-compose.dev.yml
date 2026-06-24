@@ -19,39 +19,39 @@ services:
       timeout: 5s
       retries: 5
 
-  server:
-    container_name: dezapeguei-server-dev
-    restart: always
-    depends_on:
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        DATABASE_URL: ${DATABASE_URL}
-        DIRECT_URL: ${DIRECT_URL}
-    environment:
-      NODE_ENV: production
-      ENVIRONMENT: development
-      PORT: 8081
-      TZ: America/Sao_Paulo
-      APP_TIMEZONE: America/Sao_Paulo
-      DATABASE_URL: ${DATABASE_URL}
-      DIRECT_URL: ${DIRECT_URL}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_DB: ${REDIS_DB:-0}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/${REDIS_DB:-0}
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-    ports:
-      - "8081:8081"
-    command: ["npm", "run", "start:prod"]
+  # server:
+  #   container_name: dezapeguei-server-dev
+  #   restart: always
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     args:
+  #       DATABASE_URL: ${DATABASE_URL}
+  #       DIRECT_URL: ${DIRECT_URL}
+  #   environment:
+  #     NODE_ENV: production
+  #     ENVIRONMENT: development
+  #     PORT: 8081
+  #     TZ: America/Sao_Paulo
+  #     APP_TIMEZONE: America/Sao_Paulo
+  #     DATABASE_URL: ${DATABASE_URL}
+  #     DIRECT_URL: ${DIRECT_URL}
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     REDIS_PASSWORD: ${REDIS_PASSWORD}
+  #     REDIS_DB: ${REDIS_DB:-0}
+  #     REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/${REDIS_DB:-0}
+  #     SUPABASE_URL: ${SUPABASE_URL}
+  #     SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+  #     SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+  #   ports:
+  #     - "8081:8081"
+  #   command: ["npm", "run", "start:prod"]
 
 volumes:
   redis-data-dev:

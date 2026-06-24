@@ -38,7 +38,7 @@ async function bootstrap() {
     customSiteTitle: 'DeZapeguei API Documentation',
   });
 
-  await app.listen(process.env.PORT ?? 8080, '0.0.0.0');
+  await app.listen(process.env.PORT ?? 8081, '0.0.0.0');
 }
 bootstrap()
   .then(() => {
