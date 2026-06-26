@@ -8,8 +8,10 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { User } from '@prisma/client';
 import {
   ApiBody,
   ApiBadRequestResponse,
@@ -26,8 +28,11 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { FindMessagesQueryDto } from './dto/find-messages-query.dto';
 import { MessageEntity } from './entities/message.entity';
 import { SanitizePipe } from '../common/pipes/sanitize.pipe';
+import { SupabaseAuthGuard } from '../auth/guards/user-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Messages')
+@UseGuards(SupabaseAuthGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('messages')
 export class MessagesController {
@@ -43,7 +48,7 @@ export class MessagesController {
         value: {
           chatId: 'chat_123',
           senderId: 'user_1',
-          content: 'Oi, ainda esta disponivel?',
+          content: 'Oi, ainda está disponível?',
         },
       },
     },
@@ -52,8 +57,9 @@ export class MessagesController {
   @ApiBadRequestResponse({ description: 'Validation error' })
   create(
     @Body(new SanitizePipe()) dto: CreateMessageDto,
+    @CurrentUser() user: User,
   ): Promise<MessageEntity> {
-    return this.messagesService.create(dto);
+    return this.messagesService.create({ ...dto, senderId: user.id });
   }
 
   @Get()

@@ -16,7 +16,7 @@ async function main() {
       id: 'seed-category-1',
       name: 'Eletrônicos',
       keywords: [
-        'eletronicos',
+        'eletrônicos',
         'celular',
         'notebook',
         'tablet',
@@ -28,8 +28,8 @@ async function main() {
       id: 'seed-category-2',
       name: 'Móveis',
       keywords: [
-        'moveis',
-        'sofa',
+        'móveis',
+        'sofá',
         'mesa',
         'cadeira',
         'guarda roupa',
@@ -39,7 +39,7 @@ async function main() {
     {
       id: 'seed-category-3',
       name: 'Roupas',
-      keywords: ['roupas', 'moda', 'camisa', 'calca', 'jaqueta', 'tenis'],
+      keywords: ['roupas', 'moda', 'camisa', 'calça', 'jaqueta', 'tênis'],
     },
     {
       id: 'seed-category-4',
@@ -64,9 +64,9 @@ async function main() {
       keywords: [
         'casa',
         'cozinha',
-        'eletrodomestico',
-        'utensilio',
-        'organizacao',
+        'eletrodoméstico',
+        'utensílio',
+        'organização',
       ],
     },
     {
@@ -85,9 +85,9 @@ async function main() {
       id: 'seed-category-8',
       name: 'Bebês',
       keywords: [
-        'bebes',
+        'bebês',
         'carrinho',
-        'berco',
+        'berço',
         'cadeirinha',
         'brinquedo infantil',
       ],
@@ -106,7 +106,7 @@ async function main() {
     {
       id: 'seed-category-10',
       name: 'Decoração',
-      keywords: ['decoracao', 'quadro', 'luminaria', 'vaso', 'tapete'],
+      keywords: ['decoração', 'quadro', 'luminária', 'vaso', 'tapete'],
     },
   ];
 

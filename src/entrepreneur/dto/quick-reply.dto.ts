@@ -8,7 +8,7 @@ export class QuickReplyDto {
   @MaxLength(80)
   title!: string;
 
-  @ApiProperty({ example: 'Ola! Esse item ainda esta disponivel.' })
+  @ApiProperty({ example: 'Olá! Esse item ainda está disponível.' })
   @IsString()
   @MinLength(2)
   @MaxLength(500)

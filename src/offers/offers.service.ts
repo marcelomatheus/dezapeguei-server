@@ -551,7 +551,7 @@ export class OffersService {
       wishlisters.map((entry) =>
         this.notificationsService.create({
           userId: entry.userId,
-          message: `Preco de "${offerTitle}" caiu de R$ ${oldPrice.toFixed(2)} para R$ ${newPrice.toFixed(2)}.`,
+          message: `Preço de "${offerTitle}" caiu de R$ ${oldPrice.toFixed(2)} para R$ ${newPrice.toFixed(2)}.`,
           redirect: `/offers/${offerId}`,
           isRead: false,
         }),

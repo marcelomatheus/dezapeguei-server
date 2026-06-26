@@ -22,7 +22,7 @@ export class EntrepreneurValidationDto {
   @MaxLength(32)
   document!: string;
 
-  @ApiProperty({ example: 'Eletronicos' })
+  @ApiProperty({ example: 'Eletrônicos' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(80)

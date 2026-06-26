@@ -208,8 +208,8 @@ export class SalesService {
     await this.notificationsService.create({
       userId: buyerId,
       message: offerTitle
-        ? `A venda de "${offerTitle}" foi concluida.`
-        : 'Sua compra foi concluida.',
+        ? `A venda de "${offerTitle}" foi concluída.`
+        : 'Sua compra foi concluída.',
       redirect: `/sales/${saleId}`,
       isRead: false,
     });

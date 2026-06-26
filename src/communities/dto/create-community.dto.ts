@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
 
 export class CreateCommunityDto {
-  @ApiProperty({ example: 'Eletronicos SP' })
+  @ApiProperty({ example: 'Eletrônicos SP' })
   @IsString()
   @MinLength(3)
   @MaxLength(120)

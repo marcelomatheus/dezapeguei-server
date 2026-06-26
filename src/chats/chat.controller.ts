@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   ClassSerializerInterceptor,
   Controller,
   Delete,
@@ -8,8 +9,10 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { User } from '@prisma/client';
 import {
   ApiBody,
   ApiBadRequestResponse,
@@ -28,8 +31,11 @@ import { FindChatsQueryDto } from './dto/find-chats-query.dto';
 import { FindOrCreateChatDto } from './dto/find-or-create-chat.dto';
 import { ChatEntity } from './entities/chat.entity';
 import { ChatResponseDto } from './dto/chat-response.dto';
+import { SupabaseAuthGuard } from '../auth/guards/user-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Chats')
+@UseGuards(SupabaseAuthGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('chats')
 export class ChatController {
@@ -52,7 +58,16 @@ export class ChatController {
   })
   @ApiCreatedResponse({ type: ChatEntity })
   @ApiBadRequestResponse({ description: 'Validation error' })
-  create(@Body() dto: CreateChatDto): Promise<ChatEntity> {
+  create(
+    @Body() dto: CreateChatDto,
+    @CurrentUser() user: User,
+  ): Promise<ChatEntity> {
+    if (!dto.participantIds.includes(user.id)) {
+      throw new BadRequestException(
+        'Authenticated user must be a chat participant',
+      );
+    }
+
     return this.chatService.create(dto);
   }
 
@@ -65,8 +80,11 @@ export class ChatController {
     type: [String],
   })
   @ApiOkResponse({ type: ChatResponseDto, isArray: true })
-  findAll(@Query() query: FindChatsQueryDto): Promise<ChatEntity[]> {
-    return this.chatService.findAll(query);
+  findAll(
+    @Query() query: FindChatsQueryDto,
+    @CurrentUser() user: User,
+  ): Promise<ChatEntity[]> {
+    return this.chatService.findAll({ ...query, userId: user.id });
   }
 
   @Post('find-or-create')
@@ -86,7 +104,16 @@ export class ChatController {
   })
   @ApiCreatedResponse({ type: ChatEntity })
   @ApiBadRequestResponse({ description: 'Validation error' })
-  findOrCreateDirect(@Body() dto: FindOrCreateChatDto): Promise<ChatEntity> {
+  findOrCreateDirect(
+    @Body() dto: FindOrCreateChatDto,
+    @CurrentUser() user: User,
+  ): Promise<ChatEntity> {
+    if (!dto.participantIds.includes(user.id)) {
+      throw new BadRequestException(
+        'Authenticated user must be a chat participant',
+      );
+    }
+
     const [userA, userB] = dto.participantIds;
     return this.chatService.findOrCreateDirectChat(userA, userB);
   }

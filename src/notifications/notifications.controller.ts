@@ -41,7 +41,7 @@ export class NotificationsController {
         summary: 'Create unread notification',
         value: {
           userId: 'user_123',
-          message: 'Sua compra foi concluida.',
+          message: 'Sua compra foi concluída.',
           redirect: '/sales/sale_123',
           isRead: false,
         },

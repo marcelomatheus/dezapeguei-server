@@ -231,6 +231,12 @@ export class ChatService {
 
   async findOrCreateDirectChat(userA: string, userB: string) {
     try {
+      if (userA === userB) {
+        throw new BadRequestException(
+          'You cannot open a conversation with yourself',
+        );
+      }
+
       const participantIds = this.normalizeParticipants([userA, userB]);
       this.ensureMinParticipants(participantIds, false);
       await this.ensureUsers(participantIds);
